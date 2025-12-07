@@ -255,13 +255,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
   return (
     <div 
       className={`
-        bg-[#0a0a0a] border rounded-2xl w-[450px] flex flex-col shadow-lg overflow-hidden
+        bg-[#0a0a0a] border rounded-2xl w-[450px] flex flex-col shadow-lg
         ${isLoading ? 'border-gray-500' : ''}
         ${selected ? 'border-white' : 'border-gray-800'}
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-2xl">
         <div className="flex items-center gap-2 relative">
           <button 
             ref={modelBtnRef}
