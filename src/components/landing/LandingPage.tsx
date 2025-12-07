@@ -23,8 +23,8 @@ export function LandingPage() {
           <source src="/background.mp4" type="video/mp4" />
         </video>
         {/* Vignette & Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.6)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_60%)] mix-blend-overlay" />
       </div>
       
       {/* Navbar */}
@@ -60,14 +60,14 @@ export function LandingPage() {
           {/* Glow effect behind text */}
           <div className="absolute -inset-20 bg-gradient-to-r from-white/5 to-white/10 blur-[100px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
           
-          <h1 className="text-[120px] md:text-[240px] font-bold tracking-tighter leading-none text-white select-none animate-in fade-in zoom-in-95 duration-1000 drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]">
+          <h1 className="text-[120px] md:text-[240px] font-bold tracking-tighter leading-none text-white select-none animate-in fade-in zoom-in-95 duration-1000 drop-shadow-[0_0_60px_rgba(255,255,255,0.5)]">
             Chorus
           </h1>
 
           {/* Big CTA Button */}
           <Button 
             onClick={() => setShowAuth(true)}
-            className="mt-8 h-14 px-10 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-medium tracking-wide uppercase transition-all hover:scale-105 active:scale-95 flex items-center gap-2 group animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200 shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-10px_rgba(255,255,255,0.5)]"
+            className="mt-8 h-14 px-10 bg-transparent text-white hover:bg-white/10 border border-white/20 rounded-full text-sm font-medium tracking-wide uppercase transition-all hover:scale-105 active:scale-95 flex items-center gap-2 group animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200 backdrop-blur-sm"
           >
             Start Creating
             <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
