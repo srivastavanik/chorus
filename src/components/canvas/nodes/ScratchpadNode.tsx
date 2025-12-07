@@ -29,7 +29,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   // We initialize from data.generatedImage if present, though we primarily use the canvas for sketches
   const [generatedImage, setGeneratedImage] = useState<string | null>(
-    data.generatedImage || null
+    typeof data.generatedImage === 'string' ? data.generatedImage : null
   );
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
@@ -67,7 +67,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Load existing sketch if present
-    if (data.generatedImage) {
+    if (typeof data.generatedImage === 'string' && data.generatedImage) {
       const img = new Image();
       img.onload = () => {
         ctx.drawImage(img, 0, 0);
@@ -188,12 +188,28 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     const sketchDataUrl = getCanvasDataUrl();
     if (!sketchDataUrl) return;
 
-    // Gather text context from connected TextNodes
+    // Gather text context from connected TextNodes (check BOTH directions)
     const { nodes, edges } = useCanvasStore.getState();
     const incomingEdges = edges.filter(e => e.target === id);
-    const connectedNodes = incomingEdges
+    const outgoingEdges = edges.filter(e => e.source === id);
+    
+    // Get nodes connected via incoming edges (source nodes)
+    const incomingNodes = incomingEdges
       .map(e => nodes.find(n => n.id === e.source))
       .filter(Boolean);
+    
+    // Get nodes connected via outgoing edges (target nodes)
+    const outgoingNodes = outgoingEdges
+      .map(e => nodes.find(n => n.id === e.target))
+      .filter(Boolean);
+    
+    // Combine all connected nodes (dedupe)
+    const connectedNodeIds = new Set<string>();
+    const connectedNodes = [...incomingNodes, ...outgoingNodes].filter(node => {
+      if (!node || connectedNodeIds.has(node.id)) return false;
+      connectedNodeIds.add(node.id);
+      return true;
+    });
 
     const textContextParts: string[] = [];
     connectedNodes.forEach(node => {

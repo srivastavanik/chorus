@@ -34,14 +34,17 @@ Rules:
 
     let title = response.choices[0]?.message?.content?.trim();
 
-    // Cleanup
+    // Cleanup - aggressively strip markdown
     if (title) {
+      // Remove all lines that are just headers, keep content
+      title = title.split('\n').map(line => line.replace(/^#+\s*/, '')).join(' ');
       title = title.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
-      title = title.replace(/^#+\s*/, ''); // Remove markdown headers (###, ##, #)
+      title = title.replace(/#{1,6}\s*/g, ''); // Remove ALL markdown headers anywhere
       title = title.replace(/\*\*/g, ''); // Remove bold markdown
       title = title.replace(/\*|_/g, ''); // Remove italic markdown
       title = title.replace(/`/g, ''); // Remove code backticks
       title = title.replace(/\.$/, ''); // Remove trailing dot
+      title = title.replace(/\s+/g, ' '); // Collapse whitespace
       title = title.trim();
     }
 

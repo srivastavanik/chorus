@@ -60,6 +60,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     if (data.prompt) setPrompt(data.prompt as string);
     if (data.editImage) setEditImage(data.editImage as string);
     if (data.mode) setMode(data.mode as any);
+    // Only set model if explicitly saved, otherwise keep default (grok-imagine-v0p9)
+    if (data.model && typeof data.model === 'string') setModel(data.model);
     if (data.images) {
         setImages(data.images as any[]);
         // Update local storage when images are loaded/generated
@@ -118,12 +120,28 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     
-    // Gather context from connected nodes
+    // Gather context from connected nodes (check BOTH directions)
     const { nodes, edges } = useCanvasStore.getState();
     const incomingEdges = edges.filter(e => e.target === id);
-    const connectedNodes = incomingEdges
+    const outgoingEdges = edges.filter(e => e.source === id);
+    
+    // Get nodes connected via incoming edges (source nodes)
+    const incomingNodes = incomingEdges
       .map(e => nodes.find(n => n.id === e.source))
       .filter(Boolean);
+    
+    // Get nodes connected via outgoing edges (target nodes)  
+    const outgoingNodes = outgoingEdges
+      .map(e => nodes.find(n => n.id === e.target))
+      .filter(Boolean);
+    
+    // Combine all connected nodes (dedupe by id)
+    const connectedNodeIds = new Set<string>();
+    const connectedNodes = [...incomingNodes, ...outgoingNodes].filter(node => {
+      if (!node || connectedNodeIds.has(node.id)) return false;
+      connectedNodeIds.add(node.id);
+      return true;
+    });
 
     // Get text context from connected TextNodes (use last assistant message or conversation summary)
     const textContextParts: string[] = [];
