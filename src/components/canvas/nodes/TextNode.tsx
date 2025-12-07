@@ -23,7 +23,7 @@ import {
   RefreshCw,
   Copy,
   Image as ImageIcon,
-  Pencil,
+  StickyNote,
   Trash2,
   Paperclip,
   Maximize2,
@@ -303,13 +303,11 @@ export function TextNode({ id, data, selected }: NodeProps) {
       .map((n) => n.data.xaiFileId)
       .filter(Boolean) as string[];
 
-    // Collect image URLs from connected Image nodes or Scratchpad nodes (including sketches)
-    // Scratchpad nodes store their sketch as a data URL in 'generatedImage'
+    // Collect image URLs from connected Image nodes
     const connectedImageUrls = connectedNodes
       .filter(
         (n) =>
-          (n?.type === "image" && n.data?.images?.[0]?.url) ||
-          (n?.type === "scratchpad" && n.data?.generatedImage)
+          (n?.type === "image" && n.data?.images?.[0]?.url)
       )
       .map((n) =>
         n?.type === "image" ? n.data.images?.[0]?.url : n.data.generatedImage
@@ -780,12 +778,12 @@ export function TextNode({ id, data, selected }: NodeProps) {
                 </button>
                 <button
                   onClick={() => {
-                    updateNodeType(id, "scratchpad");
+                    updateNodeType(id, "postit");
                     setShowMoreMenu(false);
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
                 >
-                  <Pencil size={14} /> Scratchpad
+                  <StickyNote size={14} /> Post-it
                 </button>
               </div>
             )}

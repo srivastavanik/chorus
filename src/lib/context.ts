@@ -49,14 +49,13 @@ export function getAncestorContext(
       }));
     }
 
-    if (node.type === "scratchpad") {
-      const hasImage = !!node.data.generatedImage;
-      const description =
-        node.data.label || (hasImage ? "Sketch attached" : "Empty scratchpad");
+    if (node.type === "postit") {
+      const content = node.data.content || "";
+      const description = content ? `Note: ${content}` : "Empty note";
       return [
         {
           role: "system",
-          content: `[Context from scratchpad node]: ${description}`,
+          content: `[Context from post-it note]: ${description}`,
         },
       ];
     }

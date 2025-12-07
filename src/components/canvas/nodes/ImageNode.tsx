@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { 
   Image as ImageIcon, ChevronDown, Minus, Plus, Loader2, 
   RefreshCw, Download, Maximize2, ThumbsUp, ThumbsDown,
-  Upload, Wand2, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy
+  Upload, Wand2, MoreHorizontal, MessageSquare, StickyNote, Trash2, Copy
 } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store';
 import { useClickOutside } from '@/hooks/useClickOutside';
@@ -160,14 +160,14 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       }
     });
 
-    // Get images from connected ScratchpadNodes or ImageNodes for editing
+    // Get images from connected ImageNodes for editing
     let sourceImageForEdit = editImage;
     if (mode === 'edit' && !sourceImageForEdit) {
-      // Try to get image from connected scratchpad (canvas drawing or generated)
+      // Try to get image from connected image nodes
       for (const node of connectedNodes) {
-        if (node?.type === 'scratchpad') {
-          // Prefer generated image, fallback to canvas data
-          if (node.data?.generatedImage) {
+        if (node?.type === 'image') {
+          // Get image URL from image node
+          if (node.data?.images?.[0]?.url) {
             sourceImageForEdit = node.data.generatedImage as string;
             break;
           } else if (node.data?.canvasData) {
@@ -190,7 +190,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     }
 
     if (mode === 'edit' && !sourceImageForEdit) {
-      setError('Please upload an image to edit or connect a Scratchpad/Image node');
+      setError('Please upload an image to edit or connect an Image node');
       return;
     }
     
@@ -391,10 +391,10 @@ export function ImageNode({ id, data, selected }: NodeProps) {
                   <MessageSquare size={14} /> Text Node
                 </button>
                 <button
-                  onClick={() => { updateNodeType(id, 'scratchpad'); setShowMoreMenu(false); }}
+                  onClick={() => { updateNodeType(id, 'postit'); setShowMoreMenu(false); }}
                   className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
                 >
-                  <Pencil size={14} /> Scratchpad
+                  <StickyNote size={14} /> Post-it
                 </button>
               </div>
             )}

@@ -11,12 +11,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id, name, nodes, edges } = await req.json();
+    const { id, name, nodes, edges, arrows } = await req.json();
     
     // Build base update data (without user_id to preserve ownership)
     const upsertData: any = {
       nodes: nodes || [], 
       edges: edges || [],
+      arrows: arrows || [],
       updated_at: new Date().toISOString()
     };
 

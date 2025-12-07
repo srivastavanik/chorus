@@ -217,7 +217,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
               <div className="glass-panel rounded-xl p-8 text-center border-dashed">
                 <ImageIcon size={24} className="mx-auto text-gray-700 mb-3" />
                 <p className="text-gray-500 text-sm font-mono">NO_IMAGES_FOUND</p>
-                <p className="text-gray-600 text-xs mt-1 font-light">Start a chat or use the scratchpad to create.</p>
+                <p className="text-gray-600 text-xs mt-1 font-light">Start a chat or generate images to create.</p>
               </div>
             )}
           </section>

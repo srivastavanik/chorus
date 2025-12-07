@@ -12,7 +12,7 @@ import {
   XYPosition,
 } from "@xyflow/react";
 
-export type NodeType = "text" | "image" | "scratchpad" | "file";
+export type NodeType = "text" | "image" | "postit" | "file";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -32,6 +32,14 @@ export interface TextNodeData {
   webSearch?: boolean;
   reasoning?: string;
   attachedFiles?: string[];
+}
+
+export interface CanvasArrow {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  strokeWidth: number;
+  createdBy: string;
 }
 
 export interface CanvasState {
@@ -92,6 +100,18 @@ export interface CanvasState {
   mergingNodeId: string | null;
   setMergingNodeId: (id: string | null) => void;
   mergeNodes: (targetId: string) => void;
+
+  // Arrow drawing state
+  arrows: CanvasArrow[];
+  isDrawingArrow: boolean;
+  arrowColor: string;
+  selectedArrowId: string | null;
+  addArrow: (arrow: CanvasArrow) => void;
+  deleteArrow: (id: string) => void;
+  setArrows: (arrows: CanvasArrow[]) => void;
+  setIsDrawingArrow: (drawing: boolean) => void;
+  setArrowColor: (color: string) => void;
+  setSelectedArrowId: (id: string | null) => void;
 }
 
 const NODE_WIDTH = 480;
@@ -136,11 +156,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedNodeId: null,
   saveStatus: "idle",
   mergingNodeId: null,
+  
+  // Arrow state
+  arrows: [],
+  isDrawingArrow: false,
+  arrowColor: "#ef4444", // red-500
+  selectedArrowId: null,
 
   setUser: (user) => set({ user }),
   setCanvasId: (id) => set({ canvasId: id }),
   setCanvasName: (name) => set({ canvasName: name }),
   setMergingNodeId: (id) => set({ mergingNodeId: id }),
+  
+  // Arrow actions
+  addArrow: (arrow) => set({ arrows: [...get().arrows, arrow] }),
+  deleteArrow: (id) => set({ arrows: get().arrows.filter(a => a.id !== id) }),
+  setArrows: (arrows) => set({ arrows }),
+  setIsDrawingArrow: (drawing) => set({ isDrawingArrow: drawing }),
+  setArrowColor: (color) => set({ arrowColor: color }),
+  setSelectedArrowId: (id) => set({ selectedArrowId: id }),
 
   onNodesChange: (changes) => {
     set({
@@ -185,7 +219,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
         let width = 450;
         if (newType === "image") width = 400;
-        if (newType === "scratchpad") width = 352;
+        if (newType === "postit") width = 200;
         if (newType === "file") width = 280;
 
         return {
@@ -359,8 +393,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ? 450
         : sourceNode.type === "image"
         ? 400
-        : sourceNode.type === "scratchpad"
-        ? 352
+        : sourceNode.type === "postit"
+        ? 200
         : 280);
 
     // Copy node data for reimagining
@@ -415,9 +449,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (nodeType === "image") {
       width = 400;
       data = { label: "Image Generation" };
-    } else if (nodeType === "scratchpad") {
-      width = 352;
-      data = { label: "Scratchpad" };
+    } else if (nodeType === "postit") {
+      width = 200;
+      data = { label: "Note", backgroundColor: "#fef3c7", textColor: "#000000" };
     } else if (nodeType === "file") {
       width = 280;
       data = { label: "File" };
@@ -535,7 +569,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     let width = 450;
     if (type === "image") width = 400;
-    if (type === "scratchpad") width = 352;
+    if (type === "postit") width = 200;
     if (type === "file") width = 280;
 
     const newNode: Node = {
@@ -619,7 +653,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCanvas: async (name) => {
-    const { nodes, edges, canvasId, canvasName } = get();
+    const { nodes, edges, arrows, canvasId, canvasName } = get();
     set({ saveStatus: "saving" });
     try {
       // Generate ID if not present to ensure upsert works
@@ -629,7 +663,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         set({ canvasId: id });
       }
 
-      const payload: any = { id, nodes, edges };
+      const payload: any = { id, nodes, edges, arrows };
       // Prefer passed name, then state name, then undefined (which lets backend decide or keep existing)
       if (name) {
         payload.name = name;

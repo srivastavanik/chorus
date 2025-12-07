@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 import { useCanvasStore, NodeType } from "@/lib/store";
 import { TextNode } from "./nodes/TextNode";
 import { ImageNode } from "./nodes/ImageNode";
-import { ScratchpadNode } from "./nodes/ScratchpadNode";
+import { PostItNode } from "./nodes/PostItNode";
 import { FileNode } from "./nodes/FileNode";
 import { BezierEdge } from "./edges/BezierEdge";
 import { Toolbar } from "./Toolbar";
@@ -27,11 +27,12 @@ import { Sidebar } from "./Sidebar";
 import { AutosaveStatus } from "./AutosaveStatus";
 import { CollaborationProvider, useCollaborationContext } from "./CollaborationProvider";
 import { useAutoVersioning } from "@/hooks/useAutoVersioning";
+import { ArrowLayer, simplifyPath } from "./ArrowLayer";
 
 const nodeTypes = {
   text: TextNode,
   image: ImageNode,
-  scratchpad: ScratchpadNode,
+  postit: PostItNode,
   file: FileNode,
 };
 
@@ -82,12 +83,22 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   // Get canvas ID for auto-versioning
   const canvasId = useCanvasStore((state) => state.canvasId);
   
+  // Arrow drawing state
+  const isDrawingArrow = useCanvasStore((state) => state.isDrawingArrow);
+  const arrowColor = useCanvasStore((state) => state.arrowColor);
+  const selectedArrowId = useCanvasStore((state) => state.selectedArrowId);
+  const addArrow = useCanvasStore((state) => state.addArrow);
+  const deleteArrow = useCanvasStore((state) => state.deleteArrow);
+  const setSelectedArrowId = useCanvasStore((state) => state.setSelectedArrowId);
+  
   // Auto-version every 5 minutes when changes detected
   useAutoVersioning(canvasId, !!user);
 
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [drawingPoints, setDrawingPoints] = useState<{ x: number; y: number }[]>([]);
+  const [isCurrentlyDrawing, setIsCurrentlyDrawing] = useState(false);
   const { screenToFlowPosition, setViewport } = useReactFlow();
   const connectingNodeRef = useRef<{
     nodeId: string;
@@ -337,7 +348,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
     [screenToFlowPosition, addFileNode, broadcast]
   );
 
-  // Mouse move for cursor tracking
+  // Mouse move for cursor tracking and arrow drawing
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       const position = screenToFlowPosition({
@@ -345,19 +356,95 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
         y: event.clientY,
       });
       updateCursor(position);
+      
+      // Add point while drawing
+      if (isCurrentlyDrawing && isDrawingArrow) {
+        setDrawingPoints(prev => [...prev, position]);
+      }
     },
-    [screenToFlowPosition, updateCursor]
+    [screenToFlowPosition, updateCursor, isCurrentlyDrawing, isDrawingArrow]
   );
+
+  // Arrow drawing mouse handlers
+  const handleArrowDrawStart = useCallback(
+    (event: React.MouseEvent) => {
+      if (!isDrawingArrow) return;
+      
+      event.preventDefault();
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      setDrawingPoints([position]);
+      setIsCurrentlyDrawing(true);
+    },
+    [isDrawingArrow, screenToFlowPosition]
+  );
+
+  const handleArrowDrawEnd = useCallback(() => {
+    if (!isCurrentlyDrawing || drawingPoints.length < 2) {
+      setDrawingPoints([]);
+      setIsCurrentlyDrawing(false);
+      return;
+    }
+
+    // Simplify the path and create arrow
+    const simplifiedPoints = simplifyPath(drawingPoints, 5);
+    
+    if (simplifiedPoints.length >= 2) {
+      const newArrow = {
+        id: crypto.randomUUID(),
+        points: simplifiedPoints,
+        color: arrowColor,
+        strokeWidth: 3,
+        createdBy: user?.id || "anonymous",
+      };
+      
+      addArrow(newArrow);
+      
+      // Broadcast new arrow
+      broadcast("arrow:create", { arrow: newArrow });
+    }
+    
+    setDrawingPoints([]);
+    setIsCurrentlyDrawing(false);
+  }, [isCurrentlyDrawing, drawingPoints, arrowColor, user, addArrow, broadcast]);
+
+  // Handle delete key for arrows
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedArrowId) {
+          deleteArrow(selectedArrowId);
+          broadcast("arrow:delete", { arrowId: selectedArrowId });
+          setSelectedArrowId(null);
+        }
+      }
+      // Press Escape to cancel drawing
+      if (e.key === "Escape") {
+        if (isCurrentlyDrawing) {
+          setDrawingPoints([]);
+          setIsCurrentlyDrawing(false);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedArrowId, deleteArrow, setSelectedArrowId, broadcast, isCurrentlyDrawing]);
 
   return (
     <div
       className={`w-full h-full bg-black relative transition-opacity duration-300 ${
         isReady ? "opacity-100" : "opacity-0"
-      }`}
+      } ${isDrawingArrow ? "cursor-crosshair" : ""}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onMouseMove={handleMouseMove}
+      onMouseDown={handleArrowDrawStart}
+      onMouseUp={handleArrowDrawEnd}
+      onMouseLeave={handleArrowDrawEnd}
     >
       {/* Drop zone overlay */}
       {isDraggingFile && (
@@ -421,8 +508,8 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
                 return "#fff";
               case "image":
                 return "#10b981"; // green-500
-              case "scratchpad":
-                return "#8b5cf6"; // violet-500
+              case "postit":
+                return "#f59e0b"; // amber-500
               case "file":
                 return "#3b82f6"; // blue-500
               default:
@@ -450,6 +537,13 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
           ) : null
         )}
       </ReactFlow>
+
+      {/* Arrow drawing layer */}
+      <ArrowLayer
+        currentDrawingPoints={isCurrentlyDrawing ? drawingPoints : undefined}
+        drawingColor={arrowColor}
+        drawingStrokeWidth={3}
+      />
 
       <AutosaveStatus />
       <Sidebar onCanvasSelect={onCanvasSelect} />

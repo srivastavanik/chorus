@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageSquare, Image as ImageIcon, Pencil, FileText, X } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, StickyNote, FileText, X } from 'lucide-react';
 import { NodeType } from '@/lib/store';
 import { useRef } from 'react';
 
@@ -16,7 +16,7 @@ export function AddBlockMenu({ onSelect, onClose, position }: AddBlockMenuProps)
   const options: { type: NodeType; label: string; icon: React.ElementType; description: string; onClick?: () => void }[] = [
     { type: 'text', label: 'Text', icon: MessageSquare, description: 'Chat with Grok AI' },
     { type: 'image', label: 'Image', icon: ImageIcon, description: 'Generate images' },
-    { type: 'scratchpad', label: 'Sketch', icon: Pencil, description: 'Draw and annotate' },
+    { type: 'postit', label: 'Post-it', icon: StickyNote, description: 'Sticky note for quick notes' },
     { 
       type: 'file', 
       label: 'Upload', 
