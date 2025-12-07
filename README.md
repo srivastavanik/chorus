@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# xAI Chorus
 
-## Getting Started
+Chorus is a spatial reasoning interface for the age of AGI. It moves beyond the constraints of linear chat, offering an infinite canvas where thoughts, data, and AI models converge to solve complex problems.
 
-First, run the development server:
+## Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Chorus provides a unified workspace for:
+- **Spatial Reasoning**: Visualize thought processes, branch conversations, and organize complex information on an infinite 2D plane.
+- **Multi-Modal Intelligence**: Seamlessly integrate text, vision, and reasoning models (Grok 3, Grok 4.1, Grok Imagine).
+- **Deep Reasoning**: Leverage next-generation reasoning capabilities to analyze, plan, and execute multi-step workflows.
+- **Knowledge Integration**: Upload files, images, and data sources directly onto the canvas for immediate context-aware analysis.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Architecture
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Built on a modern stack designed for performance and interactivity:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend**: [Next.js 15](https://nextjs.org/) (App Router), [React 19](https://react.dev/), [Tailwind CSS 4](https://tailwindcss.com/), [React Flow](https://reactflow.dev/) (Node-based UI).
+- **Backend**: Next.js API Routes (Serverless Functions).
+- **Database**: [Supabase](https://supabase.com/) (PostgreSQL) for persistent state and user management.
+- **AI Integration**: Direct integration with [xAI API](https://x.ai/) for chat, reasoning, and vision capabilities.
+- **Animation**: [GSAP](https://gsap.com/) and [Lenis](https://lenis.darkroom.engineering/) for fluid interactions and smooth scrolling.
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+### Prerequisites
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To deploy Chorus, you will need:
+1.  A **Vercel** account (for frontend/backend hosting).
+2.  A **Supabase** project (for database and authentication).
+3.  An **xAI API Key** (for AI model access).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Environment Variables
 
-## Deploy on Vercel
+Configure the following environment variables in your deployment environment (e.g., Vercel Project Settings):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Variable | Description | Required |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL. | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous public API key. | Yes |
+| `XAI_API_KEY` | Your xAI API key for accessing Grok models. | Yes |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Database Setup
+
+Initialize your Supabase database by running the SQL schema provided in `supabase-schema.sql`. This sets up the necessary tables for users, canvases, and sessions.
+
+### Deploy to Vercel
+
+1.  Push your code to a Git repository (GitHub, GitLab, Bitbucket).
+2.  Import the project into Vercel.
+3.  Add the environment variables listed above.
+4.  Deploy.
+
+## License
+
+[MIT](LICENSE)
