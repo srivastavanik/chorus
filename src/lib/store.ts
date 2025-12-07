@@ -32,10 +32,12 @@ export interface TextNodeData {
 export interface CanvasState {
   nodes: Node[];
   edges: Edge[];
+  user: any | null;
   selectedNodeId: string | null;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
+  setUser: (user: any) => void;
   addNode: (
     type: NodeType,
     position?: XYPosition,
@@ -71,6 +73,7 @@ export interface CanvasState {
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
   setSelectedNodeId: (id: string | null) => void;
+  updateNodeDimensions: (id: string, width: number, height?: number) => void;
   saveCanvas: (name?: string) => Promise<void>;
 }
 
@@ -117,7 +120,10 @@ const findEmptyPosition = (
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   nodes: [],
   edges: [],
+  user: null,
   selectedNodeId: null,
+
+  setUser: (user) => set({ user }),
 
   onNodesChange: (changes) => {
     set({
@@ -409,32 +415,76 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   addFileNode: async (file, position) => {
-    const { nodes, edges } = get();
+    const { nodes } = get();
     const id = crypto.randomUUID();
     const nodePosition = findEmptyPosition(nodes, position.x, position.y);
 
-    // Read file as base64 for preview
+    // Optimistic UI: Read as base64 for immediate display while uploading
     const reader = new FileReader();
-    const fileData = await new Promise<string>((resolve) => {
+    const base64Preview = await new Promise<string>((resolve) => {
       reader.onload = () => resolve(reader.result as string);
       reader.readAsDataURL(file);
     });
 
+    // Create node immediately with local data
     const newNode: Node = {
       id,
       type: "file",
       position: nodePosition,
-      width: 280, // w-[280px]
+      width: 280,
       data: {
         label: file.name,
         fileType: file.type,
         fileSize: file.size,
-        fileData,
+        fileData: base64Preview, // Temporary local preview
+        uploading: true,
       },
       dragHandle: ".drag-handle",
     };
 
     set({ nodes: [...nodes, newNode] });
+
+    // Perform upload
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      // Update node with remote URL
+      set({
+        nodes: get().nodes.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  fileData: data.url, // Use signed URL
+                  uploading: false,
+                  storagePath: data.path,
+                },
+              }
+            : n
+        ),
+      });
+    } catch (error) {
+      console.error("Upload failed:", error);
+      // Mark as error
+      set({
+        nodes: get().nodes.map((n) =>
+          n.id === id
+            ? { ...n, data: { ...n.data, uploading: false, error: "Upload failed" } }
+            : n
+        ),
+      });
+    }
+
     return id;
   },
 
@@ -521,6 +571,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
+
+  updateNodeDimensions: (id, width, height) => {
+    set({
+      nodes: get().nodes.map((node) =>
+        node.id === id
+          ? { ...node, width, height, style: { ...node.style, width, height } }
+          : node
+      ),
+    });
+  },
 
   saveCanvas: async (name) => {
     const { nodes, edges } = get();

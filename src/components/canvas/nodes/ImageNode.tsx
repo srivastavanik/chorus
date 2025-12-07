@@ -50,6 +50,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const qualityMenuRef = useClickOutside<HTMLDivElement>(() => setShowQualityMenu(false), [qualityBtnRef]);
   const moreMenuRef = useClickOutside<HTMLDivElement>(() => setShowMoreMenu(false), [moreBtnRef]);
 
+  const [showPreview, setShowPreview] = useState(false);
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     if (mode === 'edit' && !editImage) {
@@ -221,20 +223,27 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Preview Area */}
-      <div className="p-4 bg-black/40 flex items-center justify-center min-h-[200px]">
+      <div className="p-4 bg-black/40 flex items-center justify-center min-h-[200px] relative">
         {isLoading ? (
           <div className="flex flex-col items-center gap-2 text-gray-500">
             <Loader2 size={32} className="animate-spin" />
             <span className="text-xs">Generating...</span>
           </div>
         ) : images.length > 0 ? (
-          <div className="relative w-full">
+          <div className="relative w-full group/image">
             <img 
               src={images[selectedImageIndex].url} 
               alt="Generated" 
-              className="w-full rounded-lg"
+              className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
               draggable={false}
+              onClick={() => setShowPreview(true)}
             />
+            <button
+              onClick={() => setShowPreview(true)}
+              className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-black/70"
+            >
+              <Maximize2 size={14} />
+            </button>
             {images.length > 1 && (
               <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
                 {images.map((_, i) => (
@@ -252,8 +261,9 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             <img 
               src={editImage} 
               alt="Edit Preview" 
-              className="w-full rounded-lg opacity-80"
+              className="w-full rounded-lg opacity-80 cursor-pointer"
               draggable={false}
+              onClick={() => setShowPreview(true)}
             />
              <button 
               onClick={() => setEditImage(null)}
@@ -288,6 +298,24 @@ export function ImageNode({ id, data, selected }: NodeProps) {
           onChange={handleFileChange}
         />
       </div>
+
+      {/* Full preview modal */}
+      {showPreview && (images.length > 0 || (mode === 'edit' && editImage)) && (
+        <div className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-8 animate-in fade-in duration-200" onClick={() => setShowPreview(false)}>
+          <button 
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white bg-black/50 rounded-lg"
+            onClick={() => setShowPreview(false)}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+          <img 
+            src={images.length > 0 ? images[selectedImageIndex].url : editImage!} 
+            alt="Preview" 
+            className="max-w-full max-h-full rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Revised Prompt */}
       {images[selectedImageIndex]?.revisedPrompt && (

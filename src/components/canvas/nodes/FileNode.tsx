@@ -22,6 +22,7 @@ export function FileNode({ id, data, selected }: NodeProps) {
   const FileIcon = getFileIcon(data.fileType || 'application/octet-stream');
   const isImage = data.fileType?.startsWith('image/');
   const isText = data.fileType?.includes('text') || data.fileType?.includes('json');
+  const isPDF = data.fileType?.includes('pdf');
 
   const handleDownload = () => {
     if (data.fileData) {
@@ -63,7 +64,7 @@ export function FileNode({ id, data, selected }: NodeProps) {
 
       {/* Actions */}
       <div className="p-2 border-t border-gray-800 flex items-center gap-2 nopan nodrag">
-        {(isImage || isText) && (
+        {(isImage || isText || isPDF) && (
           <button 
             onClick={() => setShowPreview(true)}
             className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
@@ -72,7 +73,7 @@ export function FileNode({ id, data, selected }: NodeProps) {
             Preview
           </button>
         )}
-        <button 
+        <button  
           onClick={handleDownload}
           className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
         >
@@ -94,9 +95,18 @@ export function FileNode({ id, data, selected }: NodeProps) {
             <img src={data.fileData} alt={data.label} className="max-w-full max-h-full rounded-lg" />
           )}
           {isText && data.fileData && (
-            <pre className="bg-gray-900 p-4 rounded-lg overflow-auto max-w-full max-h-full text-sm text-gray-300">
+            <pre className="bg-gray-900 p-4 rounded-lg overflow-auto max-w-full max-h-full text-sm text-gray-300 whitespace-pre-wrap">
               {atob(data.fileData.split(',')[1] || '')}
             </pre>
+          )}
+          {data.fileType?.includes('pdf') && data.fileData && (
+            <div className="w-[80vw] h-[80vh] bg-white rounded-lg overflow-hidden">
+              <iframe 
+                src={data.fileData} 
+                className="w-full h-full"
+                title={data.label || 'PDF Preview'}
+              />
+            </div>
           )}
         </div>
       )}

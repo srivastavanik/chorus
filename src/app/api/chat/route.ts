@@ -23,7 +23,40 @@ export async function POST(req: Request) {
   }
 }
 
+// ... (imports)
+
+// Helper to process message content for vision/files
+function processMessages(messages: any[]) {
+  return messages.map((m: any) => {
+    // If content is already an array or object, leave it (or validate structure)
+    if (typeof m.content !== 'string') {
+      return { role: m.role, content: m.content };
+    }
+
+    // Check if content has our [Attached: file1, file2] pattern
+    // This is a simplistic check. In a real app, we'd likely structure the internal message object differently
+    // to store attachments separately from text content before sending to API.
+    // However, based on our TextNode implementation:
+    // const userContent = attachedFiles.length > 0 ? `${submitPrompt}\n\n[Attached: ${attachedFiles.join(', ')}]` : submitPrompt;
+    
+    // We need to Parse this and convert to xAI content array format if files are present.
+    // BUT, "attachedFiles" in TextNode currently are just names. We don't have the xAI File ID there yet.
+    // TextNode needs to be updated to send { type: 'input_file', file_id: ... }
+    
+    // Since we haven't fully implemented the client-side file ID storage in TextNode yet (it's storing names),
+    // we can't fully map this here without that data.
+    
+    // ASSUMPTION: The client will send the correct structure if it has file IDs.
+    // If the client sends a string, we pass it as a string.
+    return { role: m.role, content: m.content };
+  });
+}
+
 async function handleChatCompletions(messages: any[], model: string) {
+  // Process messages to handle file/image content structures if passed from client
+  // For now, just pass through, assuming client sends correct structure
+  const processedMessages = messages; 
+
   const response = await fetch(`${XAI_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -32,10 +65,11 @@ async function handleChatCompletions(messages: any[], model: string) {
     },
     body: JSON.stringify({
       model: model || 'grok-4-fast',
-      messages,
+      messages: processedMessages,
       stream: true,
     }),
   });
+// ...
 
   if (!response.ok) {
     const errorText = await response.text();

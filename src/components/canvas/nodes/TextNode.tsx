@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { 
   Play, Loader2, Globe, MoreHorizontal, ChevronDown, ChevronUp, 
   Edit3, GitBranch, Check, X, RotateCcw, Sparkles, ThumbsUp, ThumbsDown,
-  RefreshCw, Copy, Image as ImageIcon, Pencil, Trash2, Duplicate
+  RefreshCw, Copy, Image as ImageIcon, Pencil, Trash2, Duplicate, Paperclip, Maximize2, Minimize2
 } from 'lucide-react';
 import { useCanvasStore, ChatMessage } from '@/lib/store';
 import { getAncestorContext } from '@/lib/context';
@@ -67,9 +67,18 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [detectedItems, setDetectedItems] = useState<string[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
+  const updateNodeDimensions = useCanvasStore((state) => state.updateNodeDimensions);
+
+  const handleExpand = () => {
+    setIsExpanded(!isExpanded);
+    updateNodeDimensions(id, isExpanded ? 450 : 800, isExpanded ? undefined : 600);
+  };
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   const addMessageToNode = useCanvasStore((state) => state.addMessageToNode);
   const updateMessageInNode = useCanvasStore((state) => state.updateMessageInNode);
@@ -111,16 +120,36 @@ export function TextNode({ id, data, selected }: NodeProps) {
     }
   }, [messages, isLoading]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      // In a real implementation, we would upload these files first
+      // For now, we'll just store the names/urls locally or handle uploads if we had the mechanism in this component
+      // But since we have an upload API, let's assume we might handle it or just pass the file object if we were doing client-side
+      // The best way here is to use the addFileNode logic or similar to upload
+      // But for attaching to CHAT, we likely need to upload to xAI Files API or pass base64/url
+      
+      // For this implementation, let's just pretend we attached them for the prompt
+      const newFiles = files.map(f => f.name);
+      setAttachedFiles([...attachedFiles, ...newFiles]);
+    }
+  };
+
   const handleSubmit = async (overridePrompt?: string) => {
     const submitPrompt = overridePrompt || prompt;
-    if (!submitPrompt.trim()) return;
+    if (!submitPrompt.trim() && attachedFiles.length === 0) return;
     
     setIsLoading(true);
     setReasoning('');
     setStatus(null);
     setCitations([]);
     
-    addMessageToNode(id, { role: 'user', content: submitPrompt });
+    const userContent = attachedFiles.length > 0 
+      ? `${submitPrompt}\n\n[Attached: ${attachedFiles.join(', ')}]` 
+      : submitPrompt;
+
+    addMessageToNode(id, { role: 'user', content: userContent });
+    setAttachedFiles([]); // Clear attachments after sending
     
     try {
       const { nodes, edges } = useCanvasStore.getState();
@@ -129,9 +158,14 @@ export function TextNode({ id, data, selected }: NodeProps) {
       
       const context = getAncestorContext(id, nodes, edges);
       
+<<<<<<< HEAD
       const nodeMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
       // currentMessages already includes the new user message we just added
       const allMessages = [...context, ...nodeMessages];
+=======
+      const nodeMessages = messages.map(m => ({ role: m.role, content: m.content }));
+      const allMessages = [...context, ...nodeMessages, { role: 'user', content: userContent }];
+>>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -267,13 +301,32 @@ export function TextNode({ id, data, selected }: NodeProps) {
   return (
     <div 
       className={`
+<<<<<<< HEAD
         bg-[#0a0a0a] border rounded-2xl w-[450px] flex flex-col shadow-lg
+=======
+        bg-[#0a0a0a] border rounded-xl flex flex-col shadow-lg transition-all duration-200
+>>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
         ${isLoading ? 'border-gray-500' : ''}
         ${selected ? 'border-white' : 'border-gray-800'}
       `}
+      style={{
+        width: data.width || 450,
+        height: data.height || 'auto',
+        minHeight: isExpanded ? 600 : 'auto'
+      }}
+      onDoubleClick={(e) => {
+        // Only trigger on header double click or check target
+        if ((e.target as HTMLElement).closest('.drag-handle')) {
+          handleExpand();
+        }
+      }}
     >
       {/* Header */}
+<<<<<<< HEAD
       <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-[15px]">
+=======
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing drag-handle" onDoubleClick={handleExpand}>
+>>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
         <div className="flex items-center gap-2 relative">
           <button 
             ref={modelBtnRef}
@@ -282,7 +335,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
             title="Select model"
           >
             {MODELS.find(m => m.id === model)?.name || model}
-            <ChevronDown size={12} />
+            <ChevronDown size={10} />
           </button>
           
           {showModelMenu && (
@@ -312,6 +365,29 @@ export function TextNode({ id, data, selected }: NodeProps) {
           >
             <Globe size={14} />
           </button>
+
+          <button 
+            onClick={handleExpand}
+            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className={`p-1.5 rounded-md transition-all duration-200 nodrag ${attachedFiles.length > 0 ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
+            title="Attach files (mock for now)"
+          >
+            <Paperclip size={14} />
+          </button>
+          <input 
+            type="file" 
+            multiple 
+            ref={fileInputRef} 
+            className="hidden" 
+            onChange={handleFileChange}
+          />
           
           <button 
             onClick={handleRegenerate}
@@ -432,7 +508,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       {/* Chat History */}
       <div 
         ref={contentRef}
-        className="flex-1 min-h-[80px] max-h-[300px] overflow-y-auto nopan nodrag nowheel"
+        className="flex-1 min-h-[80px] max-h-[500px] overflow-y-auto nopan nodrag nowheel"
       >
         {messages.length === 0 ? (
           <div className="p-4 text-gray-600 italic text-sm">Ready to chat...</div>
@@ -558,7 +634,23 @@ export function TextNode({ id, data, selected }: NodeProps) {
       )}
 
       {/* Input Area */}
+<<<<<<< HEAD
       <div className={`p-3 border-t border-gray-700 bg-[#1a1a1a] nopan ${!isReasoningSectionVisible ? 'rounded-b-[15px]' : ''}`}>
+=======
+      <div className="p-3 border-t border-gray-700 bg-[#1a1a1a] nopan">
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {attachedFiles.map((file, i) => (
+              <div key={i} className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded-md flex items-center gap-1">
+                <span>{file}</span>
+                <button onClick={() => setAttachedFiles(files => files.filter((_, index) => index !== i))} className="hover:text-white">
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+>>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
         <div className="flex gap-2">
           <Input 
             value={prompt}

@@ -77,7 +77,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.lineWidth = tool === 'eraser' ? brushSize * 5 : brushSize;
-    ctx.strokeStyle = tool === 'eraser' ? '#000000' : '#FFFFFF';
+    ctx.strokeStyle = tool === 'eraser' ? '#FFFFFF' : '#000000';
     
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -88,7 +88,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.fillStyle = '#000000';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setGeneratedImage(null);
   };
@@ -142,10 +142,17 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   };
 
   return (
+<<<<<<< HEAD
     <div className={`bg-[#0a0a0a] border rounded-2xl w-[352px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-800'}`}>
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-2xl">
         <div className="flex items-center gap-2 text-gray-400">
+=======
+    <div className={`bg-white border rounded-xl w-[352px] flex flex-col shadow-lg ${selected ? 'border-gray-400' : 'border-gray-200'}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-xl cursor-grab active:cursor-grabbing drag-handle">
+        <div className="flex items-center gap-2 text-gray-600">
+>>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
           <Pencil size={14} />
           <span className="text-xs font-medium">Scratchpad</span>
         </div>
@@ -249,7 +256,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Canvas or Generated Image */}
-      <div className="p-4 bg-[#0d0d0d] relative nopan nodrag">
+      <div className="p-4 bg-white relative nopan nodrag">
         {generatedImage ? (
           <img 
             src={generatedImage} 

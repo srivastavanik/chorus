@@ -5,6 +5,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { prompt, model = 'grok-2-image', quality = 'medium', n = 1, editImage } = body;
 
+    // Ensure correct model for image generation
+    const finalModel = model === 'grok-2-image' ? 'grok-2-image' : model;
+
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
@@ -22,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const requestBody: any = {
       prompt,
-      model,
+      model: finalModel,
       n,
       response_format: 'url',
     };

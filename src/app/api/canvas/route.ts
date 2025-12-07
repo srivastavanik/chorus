@@ -1,38 +1,58 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+import { supabase } from '@/lib/supabase';
+import { getUserByToken } from '@/lib/auth-utils';
 
 export async function POST(req: Request) {
   try {
-    const { name, nodes, edges } = await req.json();
+    const token = req.headers.get('cookie')?.split('auth_token=')[1]?.split(';')[0];
+    const user = token ? await getUserByToken(token) : null;
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id, name, nodes, edges } = await req.json();
     
+    // Upsert canvas
     const { data, error } = await supabase
       .from('canvases')
-      .insert([{ name: name || 'Untitled Canvas', nodes, edges }])
-      .select();
+      .upsert({ 
+        id, // If provided, update. If not, insert (but we likely need an ID for upsert to work as update)
+        user_id: user.id,
+        name: name || 'Untitled Canvas', 
+        nodes, 
+        edges,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' })
+      .select()
+      .single();
       
     if (error) {
       console.error('Supabase error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    return NextResponse.json(data[0]);
+    return NextResponse.json(data);
   } catch (e) {
     console.error('Canvas save error:', e);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const token = req.headers.get('cookie')?.split('auth_token=')[1]?.split(';')[0];
+    const user = token ? await getUserByToken(token) : null;
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { data, error } = await supabase
       .from('canvases')
       .select('*')
-      .order('created_at', { ascending: false });
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
       
     if (error) {
       console.error('Supabase error:', error);

@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "A node-based AI workspace",
 };
 
+import { AuthProvider } from "@/components/auth/AuthProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +29,9 @@ export default function RootLayout({
       <body
         className={`${sans.variable} ${mono.variable} antialiased bg-black text-white overflow-hidden`}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

@@ -36,7 +36,7 @@ const edgeTypes = {
 };
 
 function CanvasContent() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addConnectedNode, addFileNode, setSelectedNodeId } = useCanvasStore(
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addConnectedNode, addFileNode, setSelectedNodeId, saveCanvas, user } = useCanvasStore(
     useShallow((state) => ({
       nodes: state.nodes,
       edges: state.edges,
@@ -47,6 +47,8 @@ function CanvasContent() {
       addConnectedNode: state.addConnectedNode,
       addFileNode: state.addFileNode,
       setSelectedNodeId: state.setSelectedNodeId,
+      saveCanvas: state.saveCanvas,
+      user: state.user,
     }))
   );
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -54,6 +56,17 @@ function CanvasContent() {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const { screenToFlowPosition, setViewport } = useReactFlow();
   const connectingNodeRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null);
+  
+  // Auto-save effect
+  useEffect(() => {
+    if (!isReady || !user) return;
+    
+    const timeout = setTimeout(() => {
+      saveCanvas();
+    }, 2000); // Debounce 2s
+
+    return () => clearTimeout(timeout);
+  }, [nodes, edges, isReady, user, saveCanvas]);
 
   useEffect(() => {
     setViewport({ x: 300, y: 80, zoom: 0.85 }, { duration: 0 });
