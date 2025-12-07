@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { getUserByToken } from '@/lib/auth-utils';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = 'force-dynamic';
 
-const XAI_API_KEY = process.env.XAI_API_KEY;
+let _supabaseAdmin: SupabaseClient | null = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabaseAdmin;
+}
 
 export async function POST(req: Request) {
   try {
@@ -36,6 +41,7 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
 
+    const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .storage
       .from('canvas_assets')
@@ -61,6 +67,7 @@ export async function POST(req: Request) {
 
     // 2. Upload to xAI Files API (for Chat/Agentic capabilities)
     let xaiFileId = null;
+    const XAI_API_KEY = process.env.XAI_API_KEY;
     if (XAI_API_KEY) {
         try {
             const xaiFormData = new FormData();
