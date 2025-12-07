@@ -1,3 +1,5 @@
+'use client';
+
 import { MessageSquare, Image as ImageIcon, Pencil, FileText, X } from 'lucide-react';
 import { NodeType } from '@/lib/store';
 import { useRef } from 'react';
@@ -11,14 +13,15 @@ interface AddBlockMenuProps {
 export function AddBlockMenu({ onSelect, onClose, position }: AddBlockMenuProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const options: { type: NodeType; label: string; icon: React.ElementType; onClick?: () => void }[] = [
-    { type: 'text', label: 'Text Node', icon: MessageSquare },
-    { type: 'image', label: 'Image Gen', icon: ImageIcon },
-    { type: 'scratchpad', label: 'Scratchpad', icon: Pencil },
+  const options: { type: NodeType; label: string; icon: React.ElementType; description: string; onClick?: () => void }[] = [
+    { type: 'text', label: 'Text', icon: MessageSquare, description: 'Chat with Grok AI' },
+    { type: 'image', label: 'Image', icon: ImageIcon, description: 'Generate images' },
+    { type: 'scratchpad', label: 'Sketch', icon: Pencil, description: 'Draw and annotate' },
     { 
       type: 'file', 
-      label: 'Upload File', 
+      label: 'Upload', 
       icon: FileText,
+      description: 'Attach a file',
       onClick: () => fileInputRef.current?.click() 
     },
   ];
@@ -26,45 +29,65 @@ export function AddBlockMenu({ onSelect, onClose, position }: AddBlockMenuProps)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // In a real app, upload to Supabase Storage here
       console.log('File selected:', file.name);
       onSelect('file');
     }
   };
 
   return (
-    <div 
-      className="absolute z-50 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden min-w-[180px] animate-in fade-in zoom-in duration-200"
-      style={{ 
-        left: position.x, 
-        top: position.y,
-        transform: 'translate(-50%, -50%)' 
-      }}
-    >
-      <div className="flex items-center justify-between p-2 border-b border-gray-800 bg-gray-900">
-        <span className="text-xs font-medium text-gray-400 px-1">Add Block</span>
-        <button onClick={onClose} className="text-gray-500 hover:text-white p-1 rounded">
-          <X size={14} />
-        </button>
-      </div>
-      <div className="p-1">
-        {options.map((opt) => (
-          <button
-            key={opt.type}
-            onClick={() => opt.onClick ? opt.onClick() : onSelect(opt.type)}
-            className="w-full flex items-center gap-2 p-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors text-left"
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+      />
+      
+      {/* Menu */}
+      <div 
+        className="fixed z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl overflow-hidden min-w-[200px] backdrop-blur-sm animate-in"
+        style={{ 
+          left: position.x, 
+          top: position.y,
+          transform: 'translate(-50%, -50%)' 
+        }}
+      >
+        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
+          <span className="text-xs font-medium text-gray-400">Add Block</span>
+          <button 
+            onClick={onClose} 
+            className="text-gray-500 hover:text-white p-1 rounded-md hover:bg-gray-800 transition-colors"
           >
-            <opt.icon size={16} className="opacity-70" />
-            {opt.label}
+            <X size={14} />
           </button>
-        ))}
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          className="hidden" 
-          onChange={handleFileChange}
-        />
+        </div>
+        <div className="p-1.5">
+          {options.map((opt, index) => (
+            <button
+              key={opt.type}
+              onClick={() => opt.onClick ? opt.onClick() : onSelect(opt.type)}
+              className="w-full flex items-center gap-3 p-2.5 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-all duration-150 text-left group"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-gray-700 transition-colors">
+                <opt.icon size={16} className="opacity-70 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium text-sm">{opt.label}</div>
+                <div className="text-xs text-gray-500 group-hover:text-gray-400">{opt.description}</div>
+              </div>
+            </button>
+          ))}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            onChange={handleFileChange}
+          />
+        </div>
+        <div className="px-3 py-2 border-t border-gray-800 bg-gray-950/50">
+          <p className="text-[10px] text-gray-600">Right-click anywhere to open this menu</p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ReactFlow, Background, Controls, MiniMap, BackgroundVariant, useReactFlow, ReactFlowProvider } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import '@xyflow/react/dist/style.css';
@@ -36,7 +36,15 @@ function CanvasContent() {
     }))
   );
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const [isReady, setIsReady] = useState(false);
+  const { screenToFlowPosition, setViewport } = useReactFlow();
+
+  // Set initial zoomed out viewport
+  useEffect(() => {
+    setViewport({ x: 200, y: 100, zoom: 0.75 }, { duration: 0 });
+    // Animate in
+    setTimeout(() => setIsReady(true), 100);
+  }, [setViewport]);
 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
@@ -57,7 +65,7 @@ function CanvasContent() {
   };
 
   return (
-    <div className="w-full h-full bg-black relative">
+    <div className={`w-full h-full bg-black relative transition-opacity duration-500 ${isReady ? 'opacity-100' : 'opacity-0'}`}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -68,7 +76,6 @@ function CanvasContent() {
         edgeTypes={edgeTypes}
         onPaneContextMenu={onPaneContextMenu}
         onPaneClick={onPaneClick}
-        fitView
         className="bg-black"
         minZoom={0.1}
         maxZoom={2}
@@ -77,6 +84,7 @@ function CanvasContent() {
           animated: true,
           style: { stroke: '#404040', strokeWidth: 2 },
         }}
+        proOptions={{ hideAttribution: true }}
       >
         <Background
           color="#333"
@@ -84,11 +92,16 @@ function CanvasContent() {
           gap={20}
           size={1}
         />
-        <Controls className="bg-gray-900 border-gray-700 fill-white text-white" />
+        <Controls 
+          className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden" 
+          showInteractive={false}
+        />
         <MiniMap 
-          className="bg-gray-900 border-gray-700" 
-          nodeColor="#333"
-          maskColor="rgba(0, 0, 0, 0.6)"
+          className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden" 
+          nodeColor="#404040"
+          maskColor="rgba(0, 0, 0, 0.7)"
+          pannable
+          zoomable
         />
         <Toolbar />
       </ReactFlow>
