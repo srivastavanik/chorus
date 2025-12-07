@@ -33,9 +33,9 @@ export function FileNode({ id, data, selected }: NodeProps) {
   };
 
   return (
-    <div className={`bg-[#1a1a1a] border rounded-xl w-[280px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-700'}`}>
+    <div className={`bg-[#0a0a0a] border rounded-xl w-[280px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-800'}`}>
       {/* Header */}
-      <div className="flex items-center p-3 gap-3 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
+      <div className="flex items-center p-3 gap-3 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing">
         <div className="bg-gray-800 p-2 rounded-lg text-gray-400">
           <FileIcon size={24} />
         </div>
@@ -62,7 +62,7 @@ export function FileNode({ id, data, selected }: NodeProps) {
       )}
 
       {/* Actions */}
-      <div className="p-2 border-t border-gray-700 flex items-center gap-2 nopan nodrag">
+      <div className="p-2 border-t border-gray-800 flex items-center gap-2 nopan nodrag">
         {(isImage || isText) && (
           <button 
             onClick={() => setShowPreview(true)}

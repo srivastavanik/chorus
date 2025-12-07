@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { 
   Image as ImageIcon, ChevronDown, Minus, Plus, Loader2, 
-  RefreshCw, Download, Maximize2, ThumbsUp, ThumbsDown
+  RefreshCw, Download, Maximize2, ThumbsUp, ThumbsDown,
+  Upload, Wand2, MoreHorizontal, MessageSquare, Pencil
 } from 'lucide-react';
+import { useCanvasStore } from '@/lib/store';
 
 const MODELS = [
   { id: 'grok-2-image', name: 'Grok 2 Image', description: 'Latest model' },
@@ -31,18 +33,35 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [mode, setMode] = useState<'generate' | 'edit'>('generate');
+  const [editImage, setEditImage] = useState<string | null>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const updateNodeType = useCanvasStore((state) => state.updateNodeType);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
+    if (mode === 'edit' && !editImage) {
+      setError('Please upload an image to edit');
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
     
     try {
+      const body = { 
+        prompt, 
+        model, 
+        n: count,
+        quality: mode === 'generate' ? quality : undefined,
+        editImage: mode === 'edit' ? editImage : undefined 
+      };
+
       const response = await fetch('/api/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, model, quality, n: count }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -77,39 +96,95 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
-    <div className={`bg-[#1a1a1a] border rounded-xl w-[400px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-700'}`}>
+    <div className={`bg-[#0a0a0a] border rounded-xl w-[400px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-800'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2 text-gray-400">
           <ImageIcon size={14} />
           <span className="text-xs font-medium">Image Generation</span>
         </div>
         
-        {/* Model selector */}
-        <div className="relative">
-          <button 
-            onClick={() => setShowModelMenu(!showModelMenu)}
-            className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors nodrag"
-          >
-            {MODELS.find(m => m.id === model)?.name || model}
-            <ChevronDown size={10} />
-          </button>
-          
-          {showModelMenu && (
-            <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[180px] py-1">
-              {MODELS.map((m) => (
+        <div className="flex items-center gap-2">
+           <div className="flex bg-gray-800 rounded-lg p-0.5 nodrag">
+            <button
+              onClick={() => setMode('generate')}
+              className={`px-2 py-0.5 text-[10px] rounded-md transition-colors ${mode === 'generate' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'}`}
+            >
+              Generate
+            </button>
+            <button
+              onClick={() => setMode('edit')}
+              className={`px-2 py-0.5 text-[10px] rounded-md transition-colors ${mode === 'edit' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'}`}
+            >
+              Edit
+            </button>
+          </div>
+
+          {/* Model selector */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowModelMenu(!showModelMenu)}
+              className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors nodrag"
+            >
+              {MODELS.find(m => m.id === model)?.name || model}
+              <ChevronDown size={10} />
+            </button>
+            
+            {showModelMenu && (
+              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[180px] py-1">
+                {MODELS.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setModel(m.id); setShowModelMenu(false); }}
+                    className={`w-full px-3 py-2 text-left hover:bg-gray-800 transition-colors ${model === m.id ? 'bg-gray-800' : ''}`}
+                  >
+                    <div className="text-sm text-white">{m.name}</div>
+                    <div className="text-xs text-gray-500">{m.description}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative nodrag">
+            <button 
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
+              title="More options"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            
+            {showMoreMenu && (
+              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left">
+                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Convert to</div>
                 <button
-                  key={m.id}
-                  onClick={() => { setModel(m.id); setShowModelMenu(false); }}
-                  className={`w-full px-3 py-2 text-left hover:bg-gray-800 transition-colors ${model === m.id ? 'bg-gray-800' : ''}`}
+                  onClick={() => { updateNodeType(id, 'text'); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
                 >
-                  <div className="text-sm text-white">{m.name}</div>
-                  <div className="text-xs text-gray-500">{m.description}</div>
+                  <MessageSquare size={14} /> Text Node
                 </button>
-              ))}
-            </div>
-          )}
+                <button
+                  onClick={() => { updateNodeType(id, 'scratchpad'); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Pencil size={14} /> Scratchpad
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -140,12 +215,46 @@ export function ImageNode({ id, data, selected }: NodeProps) {
               </div>
             )}
           </div>
+        ) : mode === 'edit' && editImage ? (
+           <div className="relative w-full">
+            <img 
+              src={editImage} 
+              alt="Edit Preview" 
+              className="w-full rounded-lg opacity-80"
+              draggable={false}
+            />
+             <button 
+              onClick={() => setEditImage(null)}
+              className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+            >
+              <Minus size={12} />
+            </button>
+          </div>
         ) : (
           <div className="border-2 border-dashed border-gray-700 rounded-lg p-8 flex flex-col items-center justify-center text-gray-600 w-full aspect-square max-h-[240px]">
-            <ImageIcon size={32} className="mb-2 opacity-50" />
-            <span className="text-xs text-center">{prompt || 'Enter prompt to generate'}</span>
+             {mode === 'edit' ? (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex flex-col items-center gap-2 hover:text-white transition-colors"
+              >
+                <Upload size={32} className="opacity-50" />
+                <span className="text-xs text-center">Upload image to edit</span>
+              </button>
+            ) : (
+              <>
+                <ImageIcon size={32} className="mb-2 opacity-50" />
+                <span className="text-xs text-center">{prompt || 'Enter prompt to generate'}</span>
+              </>
+            )}
           </div>
         )}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept="image/*"
+          onChange={handleFileChange}
+        />
       </div>
 
       {/* Revised Prompt */}

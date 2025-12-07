@@ -44,7 +44,7 @@ export function AddBlockMenu({ onSelect, onClose, position }: AddBlockMenuProps)
       
       {/* Menu */}
       <div 
-        className="fixed z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl overflow-hidden min-w-[200px] backdrop-blur-sm animate-in"
+        className="fixed z-50 bg-[#0a0a0a]/95 border border-gray-800 rounded-xl shadow-2xl overflow-hidden min-w-[200px] backdrop-blur-sm animate-in"
         style={{ 
           left: position.x, 
           top: position.y,
@@ -65,10 +65,10 @@ export function AddBlockMenu({ onSelect, onClose, position }: AddBlockMenuProps)
             <button
               key={opt.type}
               onClick={() => opt.onClick ? opt.onClick() : onSelect(opt.type)}
-              className="w-full flex items-center gap-3 p-2.5 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-all duration-150 text-left group"
+              className="w-full flex items-center gap-3 p-2.5 text-sm text-gray-300 hover:bg-[#141414] hover:text-white rounded-lg transition-all duration-150 text-left group"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-gray-700 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-[#141414] flex items-center justify-center group-hover:bg-[#1a1a1a] transition-colors">
                 <opt.icon size={16} className="opacity-70 group-hover:opacity-100 transition-opacity" />
               </div>
               <div className="flex-1">

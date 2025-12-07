@@ -57,8 +57,16 @@ async function handleChatCompletions(messages: any[], model: string) {
           try {
             const data = JSON.parse(line.slice(6));
             const content = data.choices?.[0]?.delta?.content;
+            const reasoningContent = data.choices?.[0]?.delta?.reasoning_content;
             const reasoningTokens = data.usage?.reasoning_tokens;
             
+            if (reasoningContent) {
+              controller.enqueue(encoder.encode(JSON.stringify({
+                type: 'reasoning',
+                content: reasoningContent,
+              }) + '\n'));
+            }
+
             if (content || reasoningTokens) {
               controller.enqueue(encoder.encode(JSON.stringify({
                 type: 'content',

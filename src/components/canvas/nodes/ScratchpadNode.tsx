@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Pencil, Eraser, Trash2, Wand2, Loader2, Download } from 'lucide-react';
+import { Pencil, Eraser, Trash2, Wand2, Loader2, Download, MoreHorizontal, MessageSquare, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { useCanvasStore } from '@/lib/store';
 
 export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,6 +16,8 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,7 +106,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          prompt: `Based on this sketch: ${prompt}`,
+          prompt: prompt,
           editImage: sketchDataUrl,
           model: 'grok-2-image',
         }),
@@ -133,9 +136,9 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   };
 
   return (
-    <div className={`bg-[#1a1a1a] border rounded-xl w-[352px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-700'}`}>
+    <div className={`bg-[#0a0a0a] border rounded-xl w-[352px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-800'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2 text-gray-400">
           <Pencil size={14} />
           <span className="text-xs font-medium">Scratchpad</span>
@@ -177,6 +180,34 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
           >
             <Trash2 size={14} />
           </button>
+          
+          <div className="relative nodrag">
+            <button 
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
+              title="More options"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            
+            {showMoreMenu && (
+              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left">
+                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Convert to</div>
+                <button
+                  onClick={() => { updateNodeType(id, 'text'); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <MessageSquare size={14} /> Text Node
+                </button>
+                <button
+                  onClick={() => { updateNodeType(id, 'image'); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <ImageIcon size={14} /> Image Node
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { 
   Play, Loader2, Globe, MoreHorizontal, ChevronDown, ChevronUp, 
   Edit3, GitBranch, Check, X, RotateCcw, Sparkles, ThumbsUp, ThumbsDown,
-  RefreshCw, Copy
+  RefreshCw, Copy, Image as ImageIcon, Pencil
 } from 'lucide-react';
 import { useCanvasStore, ChatMessage } from '@/lib/store';
 import { getAncestorContext } from '@/lib/context';
@@ -64,10 +64,12 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const [editContent, setEditContent] = useState('');
   const [showSplitMenu, setShowSplitMenu] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [detectedItems, setDetectedItems] = useState<string[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
+  const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   const addMessageToNode = useCanvasStore((state) => state.addMessageToNode);
   const updateMessageInNode = useCanvasStore((state) => state.updateMessageInNode);
   const splitNodeWithContent = useCanvasStore((state) => state.splitNodeWithContent);
@@ -213,13 +215,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
   return (
     <div 
       className={`
-        bg-[#1a1a1a] border rounded-xl w-[450px] flex flex-col shadow-lg
+        bg-[#0a0a0a] border rounded-xl w-[450px] flex flex-col shadow-lg
         ${isLoading ? 'border-gray-500' : ''}
-        ${selected ? 'border-white' : 'border-gray-700'}
+        ${selected ? 'border-white' : 'border-gray-800'}
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2 relative">
           <button 
             onClick={() => setShowModelMenu(!showModelMenu)}
@@ -293,12 +295,33 @@ export function TextNode({ id, data, selected }: NodeProps) {
             )}
           </div>
           
-          <button 
-            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
-            title="More options"
-          >
-            <MoreHorizontal size={14} />
-          </button>
+          <div className="relative nodrag">
+            <button 
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
+              title="More options"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            
+            {showMoreMenu && (
+              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left">
+                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Convert to</div>
+                <button
+                  onClick={() => { updateNodeType(id, 'image'); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <ImageIcon size={14} /> Image Node
+                </button>
+                <button
+                  onClick={() => { updateNodeType(id, 'scratchpad'); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Pencil size={14} /> Scratchpad
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -332,15 +355,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
             {messages.map((msg, index) => (
               <div 
                 key={index} 
-                className={`p-3 ${msg.role === 'user' ? 'bg-[#141414]' : 'bg-transparent'} group/msg`}
+                className={`p-3 ${msg.role === 'user' ? 'bg-[#141414]' : 'bg-transparent'} group/msg animate-slide-up`}
               >
                 <div className="flex items-start gap-2">
-                  <div className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                    msg.role === 'user' ? 'bg-gray-700 text-gray-300' : 'bg-gray-800 text-gray-400'
-                  }`}>
-                    {msg.role === 'user' ? 'U' : 'G'}
-                  </div>
-                  
                   <div className="flex-1 min-w-0">
                     {editingIndex === index ? (
                       <div className="flex flex-col gap-2">
@@ -427,15 +444,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
         )}
         
         {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
-          <div className="p-3 flex items-center gap-2">
-            <div className="w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-gray-800 text-gray-400">
-              G
-            </div>
-            <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
-            </div>
+          <div className="p-3">
+             <div className="h-6 w-24 bg-gradient-to-r from-transparent via-gray-700/50 to-transparent animate-shimmer rounded-md" />
           </div>
         )}
       </div>
@@ -484,21 +494,23 @@ export function TextNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Reasoning Section - Below input */}
-      <div className="border-t border-gray-700 bg-[#141414] rounded-b-xl nopan nodrag">
-        <button 
-          onClick={() => setShowReasoning(!showReasoning)}
-          className="w-full px-3 py-2 flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors"
-          title={showReasoning ? 'Collapse reasoning' : 'Expand reasoning'}
-        >
-          <span>Reasoning {reasoning ? `(${reasoning.length} chars)` : '(none)'}</span>
-          {showReasoning ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        </button>
-        {showReasoning && reasoning && (
-          <div className="mx-3 mb-2 p-2 text-xs text-gray-500 leading-relaxed max-h-24 overflow-y-auto bg-[#0d0d0d] border border-gray-700 rounded-lg">
-            {reasoning}
-          </div>
-        )}
-      </div>
+      {(reasoning || (isLoading && model.includes('grok-4') && !model.includes('non-reasoning'))) && (
+        <div className="border-t border-gray-700 bg-[#141414] rounded-b-xl nopan nodrag">
+          <button 
+            onClick={() => setShowReasoning(!showReasoning)}
+            className="w-full px-3 py-2 flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            title={showReasoning ? 'Collapse reasoning' : 'Expand reasoning'}
+          >
+            <span>Reasoning {reasoning ? `(${reasoning.length} chars)` : isLoading ? '(thinking...)' : ''}</span>
+            {showReasoning ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {showReasoning && (
+            <div className="mx-3 mb-2 p-2 text-xs text-gray-500 leading-relaxed max-h-24 overflow-y-auto bg-[#0d0d0d] border border-gray-700 rounded-lg">
+              {reasoning || <span className="animate-pulse">Thinking...</span>}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Handles for connections */}
       <Handle 

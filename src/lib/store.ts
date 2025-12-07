@@ -131,9 +131,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       nodes: get().nodes.map((node) => {
         if (node.id !== id) return node;
+        
+        let width = 450;
+        if (newType === 'image') width = 400;
+        if (newType === 'scratchpad') width = 352;
+        if (newType === 'file') width = 280;
+
         return {
           ...node,
           type: newType,
+          width,
           data: newType === 'text' 
             ? { messages: [], label: '' }
             : { label: `${newType} node` },

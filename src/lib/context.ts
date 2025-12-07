@@ -40,9 +40,19 @@ export function getAncestorContext(
   // With the recursive traverse above, we are adding parents after visiting their parents.
   // So it should be roughly in order.
   
-  return ancestors.map(node => ({
-    role: 'system' as const, // Using system/user mix might be confusing, let's tag them
-    content: `Context from Node (${node.type}): ${node.data.label || ''}`
-  }));
+  // Return full message history from ancestors
+  return ancestors.flatMap(node => {
+    if (node.type === 'text' && node.data.messages) {
+      return node.data.messages.map((m: any) => ({
+        role: m.role,
+        content: m.content
+      }));
+    }
+    // For non-text nodes, maybe just include a system note
+    return [{
+      role: 'system',
+      content: `[Context from ${node.type} node]: ${node.data.label || 'No content'}`
+    }];
+  });
 }
 
