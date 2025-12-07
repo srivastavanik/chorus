@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useState, use, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { LandingPage } from '@/components/landing/LandingPage';
-import { NavBar } from '@/components/layout/NavBar';
-import Canvas from '@/components/canvas/Canvas';
-import { useCanvasStore } from '@/lib/store';
-import { CollaboratorColor } from '@/lib/collaboration';
+import { useEffect, useState, use, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { LandingPage } from "@/components/landing/LandingPage";
+import { NavBar } from "@/components/layout/NavBar";
+import Canvas from "@/components/canvas/Canvas";
+import { useCanvasStore } from "@/lib/store";
+import { CollaboratorColor } from "@/lib/collaboration";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -19,22 +19,26 @@ export default function CanvasPage({ params }: PageProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [collaborators, setCollaborators] = useState<any[]>([]);
-  const [myColor, setMyColor] = useState<CollaboratorColor>('#ef4444');
-  const setMyColorRef = useRef<((color: CollaboratorColor) => void) | null>(null);
+  const [myColor, setMyColor] = useState<CollaboratorColor>("#ef4444");
+  const setMyColorRef = useRef<((color: CollaboratorColor) => void) | null>(
+    null
+  );
 
   // Store Actions
-  const setNodes = useCanvasStore(state => state.setNodes);
-  const setEdges = useCanvasStore(state => state.setEdges);
-  const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
-  const setCanvasId = useCanvasStore(state => state.setCanvasId);
-  const setCanvasName = useCanvasStore(state => state.setCanvasName);
-  const currentCanvasId = useCanvasStore(state => state.canvasId);
+  const setNodes = useCanvasStore((state) => state.setNodes);
+  const setEdges = useCanvasStore((state) => state.setEdges);
+  const setSelectedNodeId = useCanvasStore((state) => state.setSelectedNodeId);
+  const setCanvasId = useCanvasStore((state) => state.setCanvasId);
+  const setCanvasName = useCanvasStore((state) => state.setCanvasName);
+  const currentCanvasId = useCanvasStore((state) => state.canvasId);
 
   // Smart initialization: If we already have the ID in the store, don't show loading
   const storedId = useCanvasStore.getState().canvasId;
-  const isAlreadyLoaded = id !== 'new' && id === storedId;
-  const [isLoadingCanvas, setIsLoadingCanvas] = useState(id !== 'new' && !isAlreadyLoaded);
-  
+  const isAlreadyLoaded = id !== "new" && id === storedId;
+  const [isLoadingCanvas, setIsLoadingCanvas] = useState(
+    id !== "new" && !isAlreadyLoaded
+  );
+
   // Track previous canvas ID to prevent premature redirects
   const prevCanvasIdRef = useRef<string | null>(currentCanvasId);
 
@@ -45,7 +49,7 @@ export default function CanvasPage({ params }: PageProps) {
     // Optimization: If the store already has the correct canvas ID, skip fetching
     // This prevents flickering when navigating from /canvas/new to /canvas/<uuid> after autosave
     const currentStoreId = useCanvasStore.getState().canvasId;
-    if (id !== 'new' && id === currentStoreId) {
+    if (id !== "new" && id === currentStoreId) {
       setIsLoadingCanvas(false);
       return;
     }
@@ -53,36 +57,70 @@ export default function CanvasPage({ params }: PageProps) {
     let isCancelled = false;
 
     const loadCanvas = async () => {
-      // Clear current state first
-      setNodes([]);
-      setEdges([]);
-      setSelectedNodeId(null);
-      setCanvasId(null);
-      setCanvasName(null);
-
-      if (id === 'new') {
+      // For new canvases, just set up the state without clearing existing nodes
+      // This prevents race conditions with collaboration
+      if (id === "new") {
+        // Only clear if we're actually starting fresh (not coming from another canvas)
+        if (currentStoreId && currentStoreId !== "new") {
+          setNodes([]);
+          setEdges([]);
+          setSelectedNodeId(null);
+        }
+        setCanvasId(null);
+        setCanvasName(null);
         setIsLoadingCanvas(false);
         return;
       }
 
+      // For existing canvases, only clear if switching to a different canvas
+      if (currentStoreId && currentStoreId !== id) {
+        setNodes([]);
+        setEdges([]);
+        setSelectedNodeId(null);
+        setCanvasId(null);
+        setCanvasName(null);
+      }
+
       try {
         const res = await fetch(`/api/canvas?id=${id}`);
-        
-        if (res.ok && !isCancelled) {
-           const data = await res.json();
-           const target = Array.isArray(data) ? data.find((c: any) => c.id === id) : (data.id === id ? data : null);
 
-           if (target && !isCancelled) {
-             setCanvasId(target.id);
-             setCanvasName(target.name);
-             const nodes = typeof target.nodes === 'string' ? JSON.parse(target.nodes) : target.nodes;
-             const edges = typeof target.edges === 'string' ? JSON.parse(target.edges) : target.edges;
-             
-             setNodes(nodes || []);
-             setEdges(edges || []);
-           } else if (!isCancelled) {
-             console.error("Canvas not found");
-           }
+        if (res.ok && !isCancelled) {
+          const data = await res.json();
+          const target = Array.isArray(data)
+            ? data.find((c: any) => c.id === id)
+            : data.id === id
+            ? data
+            : null;
+
+          if (target && !isCancelled) {
+            setCanvasId(target.id);
+            setCanvasName(target.name);
+            const loadedNodes =
+              typeof target.nodes === "string"
+                ? JSON.parse(target.nodes)
+                : target.nodes;
+            const loadedEdges =
+              typeof target.edges === "string"
+                ? JSON.parse(target.edges)
+                : target.edges;
+
+            // Get current state to merge with loaded data
+            const currentNodes = useCanvasStore.getState().nodes;
+            const currentEdges = useCanvasStore.getState().edges;
+
+            // If we already have nodes (from collaboration), merge them
+            if (currentNodes.length > 0 && currentStoreId === id) {
+              // Canvas ID matches - keep collaboration state, it's more up-to-date
+              console.log(
+                "[Canvas] Keeping collaboration state, skipping server load"
+              );
+            } else {
+              setNodes(loadedNodes || []);
+              setEdges(loadedEdges || []);
+            }
+          } else if (!isCancelled) {
+            console.error("Canvas not found");
+          }
         }
       } catch (e) {
         if (!isCancelled) console.error("Failed to load canvas", e);
@@ -96,30 +134,44 @@ export default function CanvasPage({ params }: PageProps) {
     return () => {
       isCancelled = true;
     };
-  }, [id, user, loading, setNodes, setEdges, setSelectedNodeId, setCanvasId]);
+  }, [
+    id,
+    user,
+    loading,
+    setNodes,
+    setEdges,
+    setSelectedNodeId,
+    setCanvasId,
+    setCanvasName,
+  ]);
 
   // URL Update Effect for new canvases
   // Only redirect if we transitioned from null (cleared state) to a valid ID (saved state)
   useEffect(() => {
     const prevId = prevCanvasIdRef.current;
-    
-    if (id === 'new' && currentCanvasId && currentCanvasId !== 'new' && prevId === null) {
+
+    if (
+      id === "new" &&
+      currentCanvasId &&
+      currentCanvasId !== "new" &&
+      prevId === null
+    ) {
       router.replace(`/canvas/${currentCanvasId}`);
     }
-    
+
     // Update ref
     prevCanvasIdRef.current = currentCanvasId;
   }, [id, currentCanvasId, router]);
 
   const handleHomeClick = () => {
-    router.push('/');
+    router.push("/");
   };
 
   const handleCanvasSelect = (selectedId: string | null) => {
     if (selectedId) {
       router.push(`/canvas/${selectedId}`);
     } else {
-      router.push('/canvas/new');
+      router.push("/canvas/new");
     }
   };
 
@@ -129,9 +181,12 @@ export default function CanvasPage({ params }: PageProps) {
     }
   }, []);
 
-  const handleSetMyColor = useCallback((setFn: (color: CollaboratorColor) => void) => {
-    setMyColorRef.current = setFn;
-  }, []);
+  const handleSetMyColor = useCallback(
+    (setFn: (color: CollaboratorColor) => void) => {
+      setMyColorRef.current = setFn;
+    },
+    []
+  );
 
   // Auth Loading
   if (loading) {
@@ -149,25 +204,25 @@ export default function CanvasPage({ params }: PageProps) {
 
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-black text-white">
-      <NavBar 
-        onHomeClick={handleHomeClick} 
+      <NavBar
+        onHomeClick={handleHomeClick}
         collaborators={collaborators}
         myColor={myColor}
         onColorChange={handleColorChange}
       />
-      
+
       <main className="flex-1 overflow-hidden relative">
         {isLoadingCanvas ? (
-           <div className="flex items-center justify-center w-full h-full">
-             <div className="animate-pulse text-gray-500">Loading Canvas...</div>
-           </div>
+          <div className="flex items-center justify-center w-full h-full">
+            <div className="animate-pulse text-gray-500">Loading Canvas...</div>
+          </div>
         ) : (
-           <Canvas 
-             onCanvasSelect={handleCanvasSelect} 
-             onCollaboratorsChange={setCollaborators}
-             onMyColorChange={setMyColor}
-             onSetMyColor={handleSetMyColor}
-           />
+          <Canvas
+            onCanvasSelect={handleCanvasSelect}
+            onCollaboratorsChange={setCollaborators}
+            onMyColorChange={setMyColor}
+            onSetMyColor={handleSetMyColor}
+          />
         )}
       </main>
     </div>

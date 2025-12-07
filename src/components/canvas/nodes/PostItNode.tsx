@@ -50,27 +50,29 @@ interface PostItData {
 
 export function PostItNode({ id, data, selected }: NodeProps) {
   const nodeData = data as PostItData;
-  
+
   const [content, setContent] = useState(nodeData.content || "");
   const [bgColor, setBgColor] = useState(nodeData.backgroundColor || "#fef3c7");
   const [textColor, setTextColor] = useState(nodeData.textColor || "#000000");
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastBroadcastRef = useRef<number>(0);
-  
+
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   const deleteNode = useCanvasStore((state) => state.deleteNode);
   const duplicateNode = useCanvasStore((state) => state.duplicateNode);
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
-  const updateNodeDimensions = useCanvasStore((state) => state.updateNodeDimensions);
+  const updateNodeDimensions = useCanvasStore(
+    (state) => state.updateNodeDimensions
+  );
 
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   const bgPickerRef = useRef<HTMLButtonElement>(null);
   const textPickerRef = useRef<HTMLButtonElement>(null);
-  
+
   const moreMenuRef = useClickOutside<HTMLDivElement>(
     () => setShowMoreMenu(false),
     [moreBtnRef as React.RefObject<HTMLElement>]
@@ -102,16 +104,19 @@ export function PostItNode({ id, data, selected }: NodeProps) {
   }, [nodeData.content, nodeData.backgroundColor, nodeData.textColor]);
 
   // Broadcast content changes with debounce
-  const broadcastContent = useCallback((newContent: string) => {
-    const now = Date.now();
-    if (now - lastBroadcastRef.current > 50) {
-      lastBroadcastRef.current = now;
-      broadcast("node:update", {
-        nodeId: id,
-        updates: { content: newContent }
-      });
-    }
-  }, [broadcast, id]);
+  const broadcastContent = useCallback(
+    (newContent: string) => {
+      const now = Date.now();
+      if (now - lastBroadcastRef.current > 50) {
+        lastBroadcastRef.current = now;
+        broadcast("node:update", {
+          nodeId: id,
+          updates: { content: newContent },
+        });
+      }
+    },
+    [broadcast, id]
+  );
 
   // Handle content change
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -127,7 +132,7 @@ export function PostItNode({ id, data, selected }: NodeProps) {
     updateNodeData(id, { backgroundColor: color });
     broadcast("node:update", {
       nodeId: id,
-      updates: { backgroundColor: color }
+      updates: { backgroundColor: color },
     });
     setShowBgPicker(false);
   };
@@ -138,7 +143,7 @@ export function PostItNode({ id, data, selected }: NodeProps) {
     updateNodeData(id, { textColor: color });
     broadcast("node:update", {
       nodeId: id,
-      updates: { textColor: color }
+      updates: { textColor: color },
     });
     setShowTextPicker(false);
   };
@@ -147,7 +152,8 @@ export function PostItNode({ id, data, selected }: NodeProps) {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+      textareaRef.current.style.height =
+        textareaRef.current.scrollHeight + "px";
     }
   }, [content]);
 
@@ -165,22 +171,26 @@ export function PostItNode({ id, data, selected }: NodeProps) {
       />
       <div
         className={`rounded-lg flex flex-col shadow-lg overflow-hidden transition-all duration-200 border-2`}
-        style={{ 
+        style={{
           width: nodeData.width || 200,
           height: nodeData.height || 200,
           backgroundColor: bgColor,
-          borderColor: collaboratorColor || (selected ? "#f59e0b" : "transparent"),
-          boxShadow: collaboratorColor 
+          borderColor:
+            collaboratorColor || (selected ? "#f59e0b" : "transparent"),
+          boxShadow: collaboratorColor
             ? `0 0 20px ${collaboratorColor}40, 0 0 40px ${collaboratorColor}20`
             : "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
         }}
       >
         {/* Header */}
-        <div 
+        <div
           className="flex items-center justify-between px-2 py-1.5 cursor-grab active:cursor-grabbing drag-handle shrink-0"
           style={{ backgroundColor: `${bgColor}dd` }}
         >
-          <div className="flex items-center gap-1.5" style={{ color: textColor }}>
+          <div
+            className="flex items-center gap-1.5"
+            style={{ color: textColor }}
+          >
             <StickyNote size={12} />
             <span className="text-[10px] font-medium opacity-70">Note</span>
           </div>
@@ -209,7 +219,9 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                         key={color}
                         onClick={() => handleBgColorChange(color)}
                         className={`w-6 h-6 rounded border-2 transition-transform hover:scale-110 ${
-                          bgColor === color ? "border-gray-800" : "border-gray-300"
+                          bgColor === color
+                            ? "border-gray-800"
+                            : "border-gray-300"
                         }`}
                         style={{ backgroundColor: color }}
                       />
@@ -243,7 +255,9 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                         key={color}
                         onClick={() => handleTextColorChange(color)}
                         className={`w-6 h-6 rounded border-2 transition-transform hover:scale-110 ${
-                          textColor === color ? "border-gray-800" : "border-gray-300"
+                          textColor === color
+                            ? "border-gray-800"
+                            : "border-gray-300"
                         }`}
                         style={{ backgroundColor: color }}
                       />
@@ -280,6 +294,7 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                   </button>
                   <button
                     onClick={() => {
+                      broadcast("node:delete", { nodeId: id });
                       deleteNode(id);
                       setShowMoreMenu(false);
                     }}
@@ -288,7 +303,9 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                     <Trash2 size={12} /> Delete
                   </button>
                   <div className="border-t border-gray-200 my-1" />
-                  <div className="px-3 py-1 text-[10px] text-gray-400">Convert to</div>
+                  <div className="px-3 py-1 text-[10px] text-gray-400">
+                    Convert to
+                  </div>
                   <button
                     onClick={() => {
                       updateNodeType(id, "text");
@@ -321,9 +338,10 @@ export function PostItNode({ id, data, selected }: NodeProps) {
             onChange={handleContentChange}
             placeholder="Write a note..."
             className="w-full h-full resize-none bg-transparent border-none outline-none text-sm leading-relaxed nodrag nopan"
-            style={{ 
+            style={{
               color: textColor,
-              fontFamily: "'Inter', 'SF Pro Text', 'Segoe UI', system-ui, -apple-system, sans-serif",
+              fontFamily:
+                "'Inter', 'SF Pro Text', 'Segoe UI', system-ui, -apple-system, sans-serif",
               fontSize: "15px",
             }}
           />
@@ -345,4 +363,3 @@ export function PostItNode({ id, data, selected }: NodeProps) {
     </>
   );
 }
-

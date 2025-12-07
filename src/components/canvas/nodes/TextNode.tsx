@@ -64,15 +64,30 @@ const MODELS = [
     description: "Optimized for speed",
     supportsReasoning: true,
   },
-  { id: "grok-4", name: "Grok 4", description: "Full reasoning", supportsReasoning: true },
+  {
+    id: "grok-4",
+    name: "Grok 4",
+    description: "Full reasoning",
+    supportsReasoning: true,
+  },
   {
     id: "grok-4-fast-non-reasoning",
     name: "Grok 4 Fast (No Reasoning)",
     description: "Fastest responses",
     supportsReasoning: false,
   },
-  { id: "grok-3", name: "Grok 3", description: "Previous generation", supportsReasoning: false },
-  { id: "grok-3-mini", name: "Grok 3 Mini", description: "Lightweight", supportsReasoning: false },
+  {
+    id: "grok-3",
+    name: "Grok 3",
+    description: "Previous generation",
+    supportsReasoning: false,
+  },
+  {
+    id: "grok-3-mini",
+    name: "Grok 3 Mini",
+    description: "Lightweight",
+    supportsReasoning: false,
+  },
 ];
 
 // Extract numbered/bulleted items from text
@@ -145,11 +160,11 @@ export function TextNode({ id, data, selected }: NodeProps) {
     const newWidth = newExpanded ? 800 : 450;
     const newHeight = newExpanded ? 600 : undefined;
     updateNodeDimensions(id, newWidth, newHeight);
-    
+
     // Broadcast dimension change to collaborators
-    broadcast('node:update', {
+    broadcast("node:update", {
       nodeId: id,
-      updates: { width: newWidth, height: newHeight }
+      updates: { width: newWidth, height: newHeight },
     });
   };
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
@@ -299,7 +314,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
         broadcast("title:update", { title: newTitle });
         window.dispatchEvent(new Event("canvas-list-updated"));
         // Still schedule auto-title for a better generated name later?
-        // Maybe skip auto-title if we just set it? 
+        // Maybe skip auto-title if we just set it?
         // Let's skip scheduleAutoTitle if we set it manually to avoid overwrite flicker
       } else {
         scheduleAutoTitle(submitPrompt);
@@ -326,10 +341,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
 
     // Collect image URLs from connected Image nodes
     const connectedImageUrls = connectedNodes
-      .filter(
-        (n) =>
-          (n?.type === "image" && n.data?.images?.[0]?.url)
-      )
+      .filter((n) => n?.type === "image" && n.data?.images?.[0]?.url)
       .map((n) =>
         n?.type === "image" ? n.data.images?.[0]?.url : n.data.generatedImage
       )
@@ -372,11 +384,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
     setAttachedFiles([]); // Clear attachments after sending
 
     // Broadcast user message immediately
-    const nodeWithUserMsg = useCanvasStore.getState().nodes.find((n) => n.id === id);
+    const nodeWithUserMsg = useCanvasStore
+      .getState()
+      .nodes.find((n) => n.id === id);
     if (nodeWithUserMsg) {
-      broadcast("node:update", { 
-        nodeId: id, 
-        updates: { messages: nodeWithUserMsg.data.messages } 
+      broadcast("node:update", {
+        nodeId: id,
+        updates: { messages: nodeWithUserMsg.data.messages },
       });
     }
 
@@ -491,11 +505,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
         if (needsBroadcast) {
           const now = Date.now();
           if (now - lastBroadcastTime > 100) {
-            const currentNode = useCanvasStore.getState().nodes.find((n) => n.id === id);
+            const currentNode = useCanvasStore
+              .getState()
+              .nodes.find((n) => n.id === id);
             if (currentNode) {
-              broadcast("node:update", { 
-                nodeId: id, 
-                updates: { messages: currentNode.data.messages } 
+              broadcast("node:update", {
+                nodeId: id,
+                updates: { messages: currentNode.data.messages },
               });
               lastBroadcastTime = now;
             }
@@ -504,11 +520,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
       }
 
       // Final broadcast
-      const finalNode = useCanvasStore.getState().nodes.find((n) => n.id === id);
+      const finalNode = useCanvasStore
+        .getState()
+        .nodes.find((n) => n.id === id);
       if (finalNode) {
-        broadcast("node:update", { 
-          nodeId: id, 
-          updates: { messages: finalNode.data.messages } 
+        broadcast("node:update", {
+          nodeId: id,
+          updates: { messages: finalNode.data.messages },
         });
       }
     } catch (e) {
@@ -596,16 +614,20 @@ export function TextNode({ id, data, selected }: NodeProps) {
       className={`
         bg-[#0a0a0a] border-2 rounded-xl flex flex-col shadow-lg transition-all duration-200
         ${isLoading ? "border-gray-500" : ""}
-        ${collaboratorColor ? "" : selected ? "border-white" : "border-gray-800"}
+        ${
+          collaboratorColor ? "" : selected ? "border-white" : "border-gray-800"
+        }
       `}
       style={{
         width: nodeWidth,
         height: nodeHeight,
         minHeight: isExpanded ? 600 : "auto",
-        ...(collaboratorColor ? {
-          borderColor: collaboratorColor,
-          boxShadow: `0 0 20px ${collaboratorColor}40, 0 0 40px ${collaboratorColor}20`,
-        } : {}),
+        ...(collaboratorColor
+          ? {
+              borderColor: collaboratorColor,
+              boxShadow: `0 0 20px ${collaboratorColor}40, 0 0 40px ${collaboratorColor}20`,
+            }
+          : {}),
       }}
       onDoubleClick={(e) => {
         // Only trigger on header double click or check target
@@ -778,6 +800,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
                 </button>
                 <button
                   onClick={() => {
+                    // Broadcast deletion to collaborators first
+                    broadcast("node:delete", { nodeId: id });
                     deleteNode(id);
                     setShowMoreMenu(false);
                   }}

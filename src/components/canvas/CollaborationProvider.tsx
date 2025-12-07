@@ -1,10 +1,20 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useEffect,
+} from "react";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useCanvasStore } from "@/lib/store";
-import { Collaborator, CollaboratorColor, COLLABORATOR_COLORS } from "@/lib/collaboration";
+import {
+  Collaborator,
+  CollaboratorColor,
+  COLLABORATOR_COLORS,
+} from "@/lib/collaboration";
 
 interface CollaborationContextType {
   collaborators: Collaborator[];
@@ -15,23 +25,28 @@ interface CollaborationContextType {
   updateCursor: (cursor: { x: number; y: number } | null) => void;
   setActiveNode: (nodeId: string | null) => void;
   forceSyncState: () => void;
+  markLocalChange: () => void;
   getNodeBorderColor: (nodeId: string) => string | null;
 }
 
-const CollaborationContext = createContext<CollaborationContextType | null>(null);
+const CollaborationContext = createContext<CollaborationContextType | null>(
+  null
+);
 
 // Persist preferred color in localStorage
-const PREFERRED_COLOR_KEY = 'chorus_preferred_color';
+const PREFERRED_COLOR_KEY = "chorus_preferred_color";
 
 export function CollaborationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const canvasId = useCanvasStore((state) => state.canvasId);
-  
+
   // Load preferred color from localStorage
-  const [preferredColor, setPreferredColor] = useState<CollaboratorColor | undefined>(undefined);
-  
+  const [preferredColor, setPreferredColor] = useState<
+    CollaboratorColor | undefined
+  >(undefined);
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const stored = localStorage.getItem(PREFERRED_COLOR_KEY);
       if (stored && COLLABORATOR_COLORS.includes(stored as CollaboratorColor)) {
         setPreferredColor(stored as CollaboratorColor);
@@ -48,6 +63,7 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
     updateCursor,
     setActiveNode,
     forceSyncState,
+    markLocalChange,
   } = useCollaboration({
     canvasId,
     userId: user?.id || null,
@@ -62,7 +78,7 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
   const setMyColor = (color: CollaboratorColor) => {
     setMyColorInternal(color);
     setPreferredColor(color);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.setItem(PREFERRED_COLOR_KEY, color);
     }
   };
@@ -86,6 +102,7 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
         updateCursor,
         setActiveNode,
         forceSyncState,
+        markLocalChange,
         getNodeBorderColor,
       }}
     >
@@ -107,6 +124,7 @@ export function useCollaborationContext() {
       updateCursor: () => {},
       setActiveNode: () => {},
       forceSyncState: () => {},
+      markLocalChange: () => {},
       getNodeBorderColor: () => null,
     };
   }

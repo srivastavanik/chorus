@@ -25,7 +25,10 @@ import { Toolbar } from "./Toolbar";
 import { AddBlockMenu } from "./AddBlockMenu";
 import { Sidebar } from "./Sidebar";
 import { AutosaveStatus } from "./AutosaveStatus";
-import { CollaborationProvider, useCollaborationContext } from "./CollaborationProvider";
+import {
+  CollaborationProvider,
+  useCollaborationContext,
+} from "./CollaborationProvider";
 import { useAutoVersioning } from "@/hooks/useAutoVersioning";
 // Freeform arrows removed
 
@@ -49,7 +52,12 @@ interface CanvasContentProps {
   onSetMyColor?: (setFn: (color: CollaboratorColor) => void) => void;
 }
 
-function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorChange, onSetMyColor }: CanvasContentProps) {
+function CanvasContentInner({
+  onCanvasSelect,
+  onCollaboratorsChange,
+  onMyColorChange,
+  onSetMyColor,
+}: CanvasContentProps) {
   const {
     nodes,
     edges,
@@ -78,14 +86,22 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
     }))
   );
 
-  const { collaborators, broadcast, setActiveNode, updateCursor, myColor, setMyColor } = useCollaborationContext();
+  const {
+    collaborators,
+    broadcast,
+    setActiveNode,
+    updateCursor,
+    myColor,
+    setMyColor,
+    markLocalChange,
+  } = useCollaborationContext();
 
   // Get canvas ID for auto-versioning
   const canvasId = useCanvasStore((state) => state.canvasId);
-  
+
   // Arrow drawing state
   // Arrows removed
-  
+
   // Auto-version every 5 minutes when changes detected
   useAutoVersioning(canvasId, !!user);
 
@@ -122,16 +138,19 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
     }
   }, [setMyColor, onSetMyColor]);
 
-  // Auto-save effect
+  // Auto-save effect with collaboration awareness
   useEffect(() => {
     if (!isReady || !user) return;
 
+    // Mark that we have local changes (prevents server sync from overwriting)
+    markLocalChange();
+
     const timeout = setTimeout(() => {
       saveCanvas();
-    }, 2000); // Debounce 2s
+    }, 3000); // Debounce 3s (increased to let collaboration broadcasts settle)
 
     return () => clearTimeout(timeout);
-  }, [nodes, edges, isReady, user, saveCanvas]);
+  }, [nodes, edges, isReady, user, saveCanvas, markLocalChange]);
 
   useEffect(() => {
     setViewport({ x: 300, y: 80, zoom: 0.85 }, { duration: 0 });
@@ -139,12 +158,25 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   }, [setViewport]);
 
   // Initialize with default text node if empty
+  // Wait a bit for collaboration to potentially sync nodes before creating a default
   useEffect(() => {
     if (isReady && !hasInitializedDefaultNode.current) {
-      if (nodes.length === 0) {
-        addNode("text");
+      // Delay default node creation to give collaboration time to sync
+      const timeout = setTimeout(() => {
+        // Re-check nodes length after delay
+        const currentNodes = useCanvasStore.getState().nodes;
+        if (currentNodes.length === 0 && !hasInitializedDefaultNode.current) {
+          addNode("text");
+          hasInitializedDefaultNode.current = true;
+        }
+      }, 1000); // Wait 1 second for collaboration to sync
+
+      // If we already have nodes, mark as initialized immediately
+      if (nodes.length > 0) {
+        hasInitializedDefaultNode.current = true;
       }
-      hasInitializedDefaultNode.current = true;
+
+      return () => clearTimeout(timeout);
     }
   }, [isReady, addNode, nodes.length]);
 
@@ -152,14 +184,22 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   const handleNodesChange: typeof onNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
-      
+
       // Broadcast significant changes
       changes.forEach((change) => {
-        if (change.type === "position" && "position" in change && change.position) {
+        if (
+          change.type === "position" &&
+          "position" in change &&
+          change.position
+        ) {
           broadcast("node:update", {
             nodeId: change.id,
             updates: { position: change.position },
           });
+        }
+        // Broadcast node deletions via ReactFlow's remove change type
+        if (change.type === "remove") {
+          broadcast("node:delete", { nodeId: change.id });
         }
       });
     },
@@ -171,18 +211,20 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
     (changes) => {
       const edgesBefore = useCanvasStore.getState().edges;
       onEdgesChange(changes);
-      
+
       // Broadcast incremental edge changes
       changes.forEach((change) => {
         if (change.type === "remove" && "id" in change) {
           broadcast("edge:delete", { edgeId: change.id });
         }
       });
-      
+
       // Check for new edges
       const edgesAfter = useCanvasStore.getState().edges;
-      const newEdges = edgesAfter.filter(e => !edgesBefore.some(eb => eb.id === e.id));
-      newEdges.forEach(edge => {
+      const newEdges = edgesAfter.filter(
+        (e) => !edgesBefore.some((eb) => eb.id === e.id)
+      );
+      newEdges.forEach((edge) => {
         broadcast("edge:create", { edge });
       });
     },
@@ -197,7 +239,9 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
       // Broadcast the newly created edge (incremental)
       setTimeout(() => {
         const edgesAfter = useCanvasStore.getState().edges;
-        const newEdge = edgesAfter.find(e => !edgesBefore.some(eb => eb.id === e.id));
+        const newEdge = edgesAfter.find(
+          (e) => !edgesBefore.some((eb) => eb.id === e.id)
+        );
         if (newEdge) {
           broadcast("edge:create", { edge: newEdge });
         }
@@ -226,10 +270,12 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
       const nodesBefore = useCanvasStore.getState().nodes;
       addNode(type, position);
       setMenu(null);
-      
+
       // Broadcast the newly created node (incremental)
       const nodesAfter = useCanvasStore.getState().nodes;
-      const newNode = nodesAfter.find(n => !nodesBefore.some(nb => nb.id === n.id));
+      const newNode = nodesAfter.find(
+        (n) => !nodesBefore.some((nb) => nb.id === n.id)
+      );
       if (newNode) {
         broadcast("node:create", { node: newNode });
       }
@@ -277,19 +323,23 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
           connectingNodeRef.current.handleType === "source" ? "right" : "left";
         const nodesBefore = useCanvasStore.getState().nodes;
         const edgesBefore = useCanvasStore.getState().edges;
-        
+
         addConnectedNode(
           connectingNodeRef.current.nodeId,
           handlePosition,
           dropPosition
         );
-        
+
         // Broadcast the newly created node and edge (incremental)
         setTimeout(() => {
           const nodesAfter = useCanvasStore.getState().nodes;
           const edgesAfter = useCanvasStore.getState().edges;
-          const newNode = nodesAfter.find(n => !nodesBefore.some(nb => nb.id === n.id));
-          const newEdge = edgesAfter.find(e => !edgesBefore.some(eb => eb.id === e.id));
+          const newNode = nodesAfter.find(
+            (n) => !nodesBefore.some((nb) => nb.id === n.id)
+          );
+          const newEdge = edgesAfter.find(
+            (e) => !edgesBefore.some((eb) => eb.id === e.id)
+          );
           if (newNode) {
             broadcast("node:create", { node: newNode, edge: newEdge });
           }
@@ -327,15 +377,17 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
       });
 
       const nodesBefore = useCanvasStore.getState().nodes;
-      
+
       for (const file of files) {
         await addFileNode(file, position);
       }
-      
+
       // Broadcast newly created file nodes (incremental)
       const nodesAfter = useCanvasStore.getState().nodes;
-      const newNodes = nodesAfter.filter(n => !nodesBefore.some(nb => nb.id === n.id));
-      newNodes.forEach(node => {
+      const newNodes = nodesAfter.filter(
+        (n) => !nodesBefore.some((nb) => nb.id === n.id)
+      );
+      newNodes.forEach((node) => {
         broadcast("node:create", { node });
       });
     },
@@ -441,7 +493,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
           style={{ zIndex: 50 }}
         />
         <Toolbar />
-        
+
         {/* Collaborator cursors */}
         {collaborators.map((collab) =>
           collab.cursor ? (
@@ -483,18 +535,18 @@ function CollaboratorCursor({
   flowY: number;
 }) {
   const { flowToScreenPosition } = useReactFlow();
-  
+
   // Convert flow coordinates to screen coordinates
   const screenPos = flowToScreenPosition({ x: flowX, y: flowY });
-  
+
   return (
     <div
       className="fixed pointer-events-none z-[1000]"
       style={{
         left: screenPos.x,
         top: screenPos.y,
-        transition: 'left 100ms ease-out, top 100ms ease-out',
-        willChange: 'left, top',
+        transition: "left 100ms ease-out, top 100ms ease-out",
+        willChange: "left, top",
       }}
     >
       {/* Standard cursor arrow shape */}
@@ -545,8 +597,8 @@ export default function Canvas({
 }) {
   return (
     <ReactFlowProvider>
-      <CanvasContent 
-        onCanvasSelect={onCanvasSelect} 
+      <CanvasContent
+        onCanvasSelect={onCanvasSelect}
         onCollaboratorsChange={onCollaboratorsChange}
         onMyColorChange={onMyColorChange}
         onSetMyColor={onSetMyColor}
