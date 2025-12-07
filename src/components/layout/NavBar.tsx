@@ -9,7 +9,7 @@ import { useClickOutside } from "@/hooks/useClickOutside";
 export function NavBar({ onHomeClick }: { onHomeClick: () => void }) {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useClickOutside(() => setMenuOpen(false));
+  const menuRef = useClickOutside<HTMLDivElement>(() => setMenuOpen(false));
 
   const handleSignOut = () => {
     setMenuOpen(false);

@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 
+type ClickOutsideRef = { current: HTMLElement | null };
+
 export function useClickOutside<T extends HTMLElement>(
   handler: () => void,
-  excludeRefs: React.RefObject<HTMLElement>[] = []
+  excludeRefs: ClickOutsideRef[] = []
 ) {
   const ref = useRef<T>(null);
 

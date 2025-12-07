@@ -43,7 +43,7 @@ export function getAncestorContext(
   // Return full message history from ancestors
   return ancestors.flatMap(node => {
     if (node.type === 'text' && node.data.messages) {
-      return node.data.messages.map((m: any) => ({
+      return (node.data.messages as any[]).map((m: any) => ({
         role: m.role,
         content: m.content
       }));

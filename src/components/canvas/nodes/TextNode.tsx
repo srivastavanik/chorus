@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { 
   Play, Loader2, Globe, MoreHorizontal, ChevronDown, ChevronUp, 
   Edit3, GitBranch, Check, X, RotateCcw, Sparkles, ThumbsUp, ThumbsDown,
-  RefreshCw, Copy, Image as ImageIcon, Pencil, Trash2, Duplicate, Paperclip, Maximize2, Minimize2
+  RefreshCw, Copy, Image as ImageIcon, Pencil, Trash2, Paperclip, Maximize2, Minimize2
 } from 'lucide-react';
 import { useCanvasStore, ChatMessage } from '@/lib/store';
 import { getAncestorContext } from '@/lib/context';
@@ -22,6 +22,14 @@ interface StreamEvent {
   message?: string;
   citations?: string[];
 }
+
+type ConnectedNodeData = {
+  images?: Array<{ url?: string; revisedPrompt?: string }>;
+  generatedImage?: string;
+  editImage?: string;
+  xaiFileId?: string;
+  label?: string;
+};
 
 const MODELS = [
   { id: 'grok-4-fast', name: 'Grok 4 Fast', description: 'Optimized for speed' },
@@ -75,6 +83,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
   
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const updateNodeDimensions = useCanvasStore((state) => state.updateNodeDimensions);
+  const nodeLayout = data as { width?: number; height?: number };
+  const nodeWidth = nodeLayout.width ?? 450;
+  const nodeHeight = nodeLayout.height ?? 'auto';
 
   const handleExpand = () => {
     setIsExpanded(!isExpanded);
@@ -90,7 +101,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const deleteNode = useCanvasStore((state) => state.deleteNode);
   const duplicateNode = useCanvasStore((state) => state.duplicateNode);
   
-  const messages: ChatMessage[] = data.messages || [];
+  const messages: ChatMessage[] = (data.messages as ChatMessage[]) || [];
 
   const modelBtnRef = useRef<HTMLButtonElement>(null);
   const splitBtnRef = useRef<HTMLButtonElement>(null);
@@ -199,19 +210,23 @@ export function TextNode({ id, data, selected }: NodeProps) {
     // Gather connected context: File/Image nodes connected to inputs of this node
     const { nodes, edges } = useCanvasStore.getState();
     const incomingEdges = edges.filter(e => e.target === id);
-    const connectedNodes = incomingEdges.map(e => nodes.find(n => n.id === e.source)).filter(Boolean);
+    const connectedNodes = incomingEdges
+        .map(e => nodes.find(n => n.id === e.source))
+        .filter(Boolean) as Array<{ type?: string; data: ConnectedNodeData }>;
 
     // Collect file IDs from connected File nodes
     const connectedFileIds = connectedNodes
         .filter(n => n?.type === 'file' && n.data?.xaiFileId)
-        .map(n => n!.data.xaiFileId);
+        .map(n => n.data.xaiFileId)
+        .filter(Boolean) as string[];
 
     // Collect image URLs from connected Image nodes or Scratchpad nodes (if generated)
     // Note: Scratchpad nodes might have 'generatedImage' or we might need to handle raw sketch if possible
     // For now let's support ImageNode outputs and Scratchpad 'generated' images
     const connectedImageUrls = connectedNodes
         .filter(n => (n?.type === 'image' && n.data?.images?.[0]?.url) || (n?.type === 'scratchpad' && n.data?.generatedImage))
-        .map(n => n?.type === 'image' ? n!.data.images[0].url : n!.data.generatedImage);
+        .map(n => n?.type === 'image' ? n.data.images?.[0]?.url : n.data.generatedImage)
+        .filter(Boolean) as string[];
 
     // Also check if ImageNode has editImage (source) if no generated image?
     // Usually we want the output. If user connects an ImageNode with an uploaded image, that's in editImage usually?
@@ -219,7 +234,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
     // Simplified: if images[0].url exists use it, else editImage.
     const sourceImages = connectedNodes
         .filter(n => n?.type === 'image' && !n.data?.images?.[0]?.url && n.data?.editImage)
-        .map(n => n!.data.editImage);
+        .map(n => n.data.editImage)
+        .filter(Boolean) as string[];
     
     const allImageUrls = [...connectedImageUrls, ...sourceImages];
 
@@ -242,7 +258,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
     
     try {
       const currentNode = useCanvasStore.getState().nodes.find(n => n.id === id);
-      const currentMessages = currentNode?.data.messages || [];
+      const currentMessages = (currentNode?.data.messages as ChatMessage[] | undefined) || [];
       
       const context = getAncestorContext(id, nodes, edges);
       
@@ -294,7 +310,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
             
             if (event.type === 'content' && event.content) {
               accumulated += event.content;
-              const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
+              const currentMessages = (useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages as ChatMessage[] | undefined) || [];
               const lastMsg = currentMessages[currentMessages.length - 1];
               if (lastMsg?.role === 'assistant') {
                 updateMessageInNode(id, currentMessages.length - 1, accumulated, accumulatedReasoning);
@@ -304,7 +320,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
             } else if (event.type === 'reasoning' && event.content) {
               accumulatedReasoning += event.content;
               setReasoning(accumulatedReasoning);
-              const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
+              const currentMessages = (useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages as ChatMessage[] | undefined) || [];
               const lastMsg = currentMessages[currentMessages.length - 1];
               if (lastMsg?.role === 'assistant') {
                 updateMessageInNode(id, currentMessages.length - 1, accumulated, accumulatedReasoning);
@@ -334,7 +350,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const handleRegenerate = () => {
     const { nodes } = useCanvasStore.getState();
     const currentNode = nodes.find(n => n.id === id);
-    const currentMessages = currentNode?.data.messages || [];
+    const currentMessages = (currentNode?.data.messages as ChatMessage[] | undefined) || [];
 
     if (currentMessages.length === 0) return;
 
@@ -398,8 +414,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
         ${selected ? 'border-white' : 'border-gray-800'}
       `}
       style={{
-        width: data.width || 450,
-        height: data.height || 'auto',
+        width: nodeWidth,
+        height: nodeHeight,
         minHeight: isExpanded ? 600 : 'auto'
       }}
       onDoubleClick={(e) => {

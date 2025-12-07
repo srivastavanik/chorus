@@ -51,6 +51,8 @@ Rules:
       return fromPrompt || 'Untitled Canvas';
     }
 
+    if (!title) return 'Untitled Canvas';
+
     return title.substring(0, 100); // Hard limit
   } catch (error) {
     console.error('Title generation failed:', error);
@@ -109,7 +111,7 @@ export async function maybeAutoTitleCanvas({
     // 3. Generate Title
     const newTitle = await generateTitleFromPrompt(prompt);
 
-    if (newTitle === 'Untitled Canvas') {
+    if (newTitle === 'Untitled Canvas' || !newTitle) {
       return { updated: false, reason: 'Model returned generic title' };
     }
 

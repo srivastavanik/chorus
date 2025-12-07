@@ -4,6 +4,17 @@ import { useState } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { FileText, Image as ImageIcon, FileCode, File, Download, Eye, X } from 'lucide-react';
 
+type FileNodeData = {
+  label?: string;
+  fileType?: string | null;
+  fileSize?: number;
+  fileData?: string;
+  uploading?: boolean;
+  xaiFileId?: string;
+  storagePath?: string;
+  error?: string;
+};
+
 const getFileIcon = (fileType: string | undefined | null) => {
   if (!fileType) return File;
   if (fileType.startsWith('image/')) return ImageIcon;
@@ -18,19 +29,25 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export function FileNode({ id, data, selected }: NodeProps) {
+export function FileNode({ data, selected }: NodeProps) {
   const [showPreview, setShowPreview] = useState(false);
-  const fileType = data.fileType as string | undefined;
+  const fileNodeData = data as FileNodeData | undefined;
+  const fileType = fileNodeData?.fileType ?? undefined;
+  const label = fileNodeData?.label ?? 'File';
+  const fileSize = fileNodeData?.fileSize ?? 0;
+  const fileData = fileNodeData?.fileData;
   const FileIcon = getFileIcon(fileType || 'application/octet-stream');
-  const isImage = fileType?.startsWith('image/');
-  const isText = fileType?.includes('text') || fileType?.includes('json');
-  const isPDF = fileType?.includes('pdf');
+  const isImage = typeof fileType === 'string' && fileType.startsWith('image/');
+  const isText =
+    typeof fileType === 'string' &&
+    (fileType.includes('text') || fileType.includes('json'));
+  const isPDF = typeof fileType === 'string' && fileType.includes('pdf');
 
   const handleDownload = () => {
-    if (data.fileData) {
+    if (typeof fileData === 'string' && fileData.length > 0) {
       const link = document.createElement('a');
-      link.href = data.fileData as string;
-      link.download = (data.label as string) || 'file';
+      link.href = fileData;
+      link.download = label || 'file';
       link.click();
     }
   };
@@ -43,22 +60,22 @@ export function FileNode({ id, data, selected }: NodeProps) {
           <FileIcon size={24} />
         </div>
         <div className="flex-1 overflow-hidden">
-          <div className="text-sm font-medium text-white truncate" title={data.label}>
-            {String(data.label || 'File')}
+          <div className="text-sm font-medium text-white truncate" title={label}>
+            {label}
           </div>
           <div className="text-xs text-gray-500">
-            {formatFileSize(data.fileSize || 0)}
+            {formatFileSize(fileSize)}
           </div>
         </div>
       </div>
 
       {/* Preview for images and PDFs */}
-      {data.fileData && (
+      {typeof fileData === 'string' && fileData.length > 0 && (
         <div className="p-2 bg-black/50 group relative" onClick={() => setShowPreview(true)}>
           {isImage ? (
             <img 
-              src={data.fileData} 
-              alt={data.label} 
+              src={fileData} 
+              alt={label} 
               className="w-full rounded-lg max-h-[250px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
               draggable={false}
             />
@@ -66,7 +83,7 @@ export function FileNode({ id, data, selected }: NodeProps) {
             <div className="w-full h-[200px] bg-white rounded-lg overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity">
                 {/* PDF Thumbnail - using object or iframe with interactions disabled */}
                 <iframe 
-                    src={`${data.fileData}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} 
+                    src={`${fileData}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} 
                     className="w-full h-full pointer-events-none scale-150 origin-top-left"
                     style={{ width: '66.66%', height: '66.66%' }} // Scale back down to fix resolution if needed
                     title="PDF Thumbnail"
@@ -122,25 +139,25 @@ export function FileNode({ id, data, selected }: NodeProps) {
           </button>
 
           <div className="relative w-full h-full max-w-6xl max-h-[90vh] flex items-center justify-center bg-[#111] rounded-xl border border-gray-800 shadow-2xl overflow-hidden">
-              {isImage && data.fileData && (
+              {isImage && fileData && (
                 <img 
-                    src={data.fileData} 
-                    alt={data.label} 
+                    src={fileData} 
+                    alt={label} 
                     className="max-w-full max-h-full object-contain" 
                 />
               )}
-              {isText && data.fileData && (
+              {isText && fileData && (
                 <div className="w-full h-full overflow-auto">
                     <pre className="p-8 text-sm font-mono text-gray-300 whitespace-pre-wrap">
-                    {data.fileData.includes('base64,') ? atob(data.fileData.split(',')[1] || '') : data.fileData}
+                    {fileData.includes('base64,') ? atob(fileData.split(',')[1] || '') : fileData}
                     </pre>
                 </div>
               )}
-              {isPDF && data.fileData && (
+              {isPDF && fileData && (
                 <iframe 
-                    src={data.fileData} 
+                    src={fileData} 
                     className="w-full h-full"
-                    title={data.label || 'PDF Preview'}
+                    title={label || 'PDF Preview'}
                 />
               )}
               {!isImage && !isText && !isPDF && (

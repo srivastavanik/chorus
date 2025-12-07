@@ -56,19 +56,20 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
   // Initialize from data prop if provided (for auto-generation flow)
   useEffect(() => {
-    if (data.isGenerating !== undefined) setIsLoading(data.isGenerating);
-    if (data.prompt) setPrompt(data.prompt);
-    if (data.editImage) setEditImage(data.editImage);
+    if (data.isGenerating !== undefined) setIsLoading(data.isGenerating as boolean);
+    if (data.prompt) setPrompt(data.prompt as string);
+    if (data.editImage) setEditImage(data.editImage as string);
     if (data.mode) setMode(data.mode as any);
     if (data.images) {
-        setImages(data.images);
+        setImages(data.images as any[]);
         // Update local storage when images are loaded/generated
-        if (data.images.length > 0) {
-            updateRecentImages(data.images[0].url, data.prompt || data.images[0].revisedPrompt || 'Generated Image');
+        if ((data.images as any[]).length > 0) {
+            const firstImg = (data.images as any[])[0];
+            updateRecentImages(firstImg.url, (data.prompt as string) || firstImg.revisedPrompt || 'Generated Image');
         }
     }
-    if (data.selectedImageIndex !== undefined) setSelectedImageIndex(data.selectedImageIndex);
-    if (data.error) setError(data.error);
+    if (data.selectedImageIndex !== undefined) setSelectedImageIndex(data.selectedImageIndex as number);
+    if (data.error) setError(data.error as string);
   }, [data]);
 
   // Helper to update recent images in local storage
