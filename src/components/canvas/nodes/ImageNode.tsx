@@ -80,7 +80,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   return (
     <div className={`bg-[#1a1a1a] border rounded-xl w-[400px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-700'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
+      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing drag-handle">
         <div className="flex items-center gap-2 text-gray-400">
           <ImageIcon size={14} />
           <span className="text-xs font-medium">Image Generation</span>
