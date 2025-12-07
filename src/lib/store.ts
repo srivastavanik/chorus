@@ -476,7 +476,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       reader.readAsDataURL(file);
     });
 
-    const newNode: Node = {
+    const newNode: CanvasNode = {
       id,
       type: "file",
       position: nodePosition,
@@ -489,6 +489,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         uploading: true,
       },
       dragHandle: ".drag-handle",
+      createdAt: Date.now(),
     };
 
     set({ nodes: [...nodes, newNode] });
@@ -556,13 +557,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (type === "postit") width = 200;
     if (type === "file") width = 280;
 
-    const newNode: Node = {
+    const newNode: CanvasNode = {
       id,
       type,
       position: nodePosition,
       width,
       data: defaultData,
       dragHandle: ".drag-handle",
+      createdAt: Date.now(),
     };
 
     let newEdges = edges;

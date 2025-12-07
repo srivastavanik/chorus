@@ -294,17 +294,26 @@ export function useCollaboration({
             const currentNodes = useCanvasStore.getState().nodes;
             const currentEdges = useCanvasStore.getState().edges;
 
-            const nodesChanged = serverNodes && serverNodes.length !== currentNodes.length;
-            const edgesChanged = serverEdges && serverEdges.length !== currentEdges.length;
+            // Smart Merge for Nodes
+            // 1. Start with server nodes (authoritative for existing/shared state)
+            const mergedNodes = [...(serverNodes || [])];
+            const serverNodeIds = new Set(mergedNodes.map((n: any) => n.id));
 
-            if (nodesChanged || edgesChanged) {
-              setNodes(serverNodes || []);
-              setEdges(serverEdges || []);
-              useCanvasStore.setState({ stableCanvasState: { nodes: serverNodes || [], edges: serverEdges || [] } });
-            } else if (!useCanvasStore.getState().stableCanvasState) {
-              // Initialize stable snapshot once
-              useCanvasStore.setState({ stableCanvasState: { nodes: currentNodes, edges: currentEdges } });
-            }
+            // 2. Preserve local nodes that are uploading or very recent (haven't synced yet)
+            currentNodes.forEach((localNode: any) => {
+              if (!serverNodeIds.has(localNode.id)) {
+                const isUploading = localNode.data?.uploading === true;
+                const isRecent = localNode.createdAt && (Date.now() - localNode.createdAt < 15000); // 15s grace
+                
+                if (isUploading || isRecent) {
+                  mergedNodes.push(localNode);
+                }
+              }
+            });
+
+            setNodes(mergedNodes);
+            setEdges(serverEdges || []);
+            useCanvasStore.setState({ stableCanvasState: { nodes: mergedNodes, edges: serverEdges || [] } });
           }
         }
       } catch (e) {
