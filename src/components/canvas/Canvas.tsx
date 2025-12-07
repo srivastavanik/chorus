@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect, useRef, DragEvent } from 'react';
-import { 
-  ReactFlow, 
-  Background, 
-  Controls, 
-  MiniMap, 
-  BackgroundVariant, 
-  useReactFlow, 
-  ReactFlowProvider, 
+import { useState, useCallback, useEffect, useRef, DragEvent } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  BackgroundVariant,
+  useReactFlow,
+  ReactFlowProvider,
   Node,
   OnConnectStartParams,
-} from '@xyflow/react';
-import { useShallow } from 'zustand/react/shallow';
-import '@xyflow/react/dist/style.css';
-import { useCanvasStore, NodeType } from '@/lib/store';
-import { TextNode } from './nodes/TextNode';
-import { ImageNode } from './nodes/ImageNode';
-import { ScratchpadNode } from './nodes/ScratchpadNode';
-import { FileNode } from './nodes/FileNode';
-import { BezierEdge } from './edges/BezierEdge';
-import { Toolbar } from './Toolbar';
-import { AddBlockMenu } from './AddBlockMenu';
-import { Sidebar } from './Sidebar';
-import { AutosaveStatus } from './AutosaveStatus';
+} from "@xyflow/react";
+import { useShallow } from "zustand/react/shallow";
+import "@xyflow/react/dist/style.css";
+import { useCanvasStore, NodeType } from "@/lib/store";
+import { TextNode } from "./nodes/TextNode";
+import { ImageNode } from "./nodes/ImageNode";
+import { ScratchpadNode } from "./nodes/ScratchpadNode";
+import { FileNode } from "./nodes/FileNode";
+import { BezierEdge } from "./edges/BezierEdge";
+import { Toolbar } from "./Toolbar";
+import { AddBlockMenu } from "./AddBlockMenu";
+import { Sidebar } from "./Sidebar";
+import { AutosaveStatus } from "./AutosaveStatus";
 
 const nodeTypes = {
   text: TextNode,
@@ -36,8 +36,24 @@ const edgeTypes = {
   bezier: BezierEdge,
 };
 
-function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null) => void }) {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addConnectedNode, addFileNode, setSelectedNodeId, saveCanvas, user } = useCanvasStore(
+function CanvasContent({
+  onCanvasSelect,
+}: {
+  onCanvasSelect?: (id: string | null) => void;
+}) {
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    addNode,
+    addConnectedNode,
+    addFileNode,
+    setSelectedNodeId,
+    saveCanvas,
+    user,
+  } = useCanvasStore(
     useShallow((state) => ({
       nodes: state.nodes,
       edges: state.edges,
@@ -56,15 +72,18 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
   const [isReady, setIsReady] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const { screenToFlowPosition, setViewport } = useReactFlow();
-  const connectingNodeRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null);
-  
+  const connectingNodeRef = useRef<{
+    nodeId: string;
+    handleType: "source" | "target";
+  } | null>(null);
+
   // Ref to track if we've initialized the default node
   const hasInitializedDefaultNode = useRef(false);
-  
+
   // Auto-save effect
   useEffect(() => {
     if (!isReady || !user) return;
-    
+
     const timeout = setTimeout(() => {
       saveCanvas();
     }, 2000); // Debounce 2s
@@ -81,7 +100,7 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
   useEffect(() => {
     if (isReady && !hasInitializedDefaultNode.current) {
       if (nodes.length === 0) {
-        addNode('text');
+        addNode("text");
       }
       hasInitializedDefaultNode.current = true;
     }
@@ -108,38 +127,51 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
     }
   };
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    setSelectedNodeId(node.id);
-  }, [setSelectedNodeId]);
+  const onNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      setSelectedNodeId(node.id);
+    },
+    [setSelectedNodeId]
+  );
 
   // Track when user starts dragging from a handle
-  const onConnectStart = useCallback((event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
-    if (params.nodeId && params.handleType) {
-      connectingNodeRef.current = {
-        nodeId: params.nodeId,
-        handleType: params.handleType,
-      };
-    }
-  }, []);
+  const onConnectStart = useCallback(
+    (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+      if (params.nodeId && params.handleType) {
+        connectingNodeRef.current = {
+          nodeId: params.nodeId,
+          handleType: params.handleType,
+        };
+      }
+    },
+    []
+  );
 
   // When connection ends
   const onConnectEnd = useCallback(
     (event: MouseEvent | TouchEvent) => {
       if (!connectingNodeRef.current) return;
-      
+
       const targetElement = event.target as Element;
-      const isPane = targetElement.classList.contains('react-flow__pane');
-      
+      const isPane = targetElement.classList.contains("react-flow__pane");
+
       // If dropped on empty canvas, create new connected node
       if (isPane) {
-        const clientX = 'clientX' in event ? event.clientX : event.changedTouches[0].clientX;
-        const clientY = 'clientY' in event ? event.clientY : event.changedTouches[0].clientY;
+        const clientX =
+          "clientX" in event ? event.clientX : event.changedTouches[0].clientX;
+        const clientY =
+          "clientY" in event ? event.clientY : event.changedTouches[0].clientY;
         const dropPosition = screenToFlowPosition({ x: clientX, y: clientY });
-        
-        const handlePosition = connectingNodeRef.current.handleType === 'source' ? 'right' : 'left';
-        addConnectedNode(connectingNodeRef.current.nodeId, handlePosition, dropPosition);
+
+        const handlePosition =
+          connectingNodeRef.current.handleType === "source" ? "right" : "left";
+        addConnectedNode(
+          connectingNodeRef.current.nodeId,
+          handlePosition,
+          dropPosition
+        );
       }
-      
+
       connectingNodeRef.current = null;
     },
     [screenToFlowPosition, addConnectedNode]
@@ -148,7 +180,7 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
   // File drag and drop handlers
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
+    event.dataTransfer.dropEffect = "copy";
     setIsDraggingFile(true);
   }, []);
 
@@ -157,23 +189,31 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
     setIsDraggingFile(false);
   }, []);
 
-  const handleDrop = useCallback(async (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDraggingFile(false);
-    
-    const files = Array.from(event.dataTransfer.files);
-    if (files.length === 0) return;
+  const handleDrop = useCallback(
+    async (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDraggingFile(false);
 
-    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    
-    for (const file of files) {
-      await addFileNode(file, position);
-    }
-  }, [screenToFlowPosition, addFileNode]);
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length === 0) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      for (const file of files) {
+        await addFileNode(file, position);
+      }
+    },
+    [screenToFlowPosition, addFileNode]
+  );
 
   return (
-    <div 
-      className={`w-full h-full bg-black relative transition-opacity duration-300 ${isReady ? 'opacity-100' : 'opacity-0'}`}
+    <div
+      className={`w-full h-full bg-black relative transition-opacity duration-300 ${
+        isReady ? "opacity-100" : "opacity-0"
+      }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -183,7 +223,9 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
         <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center pointer-events-none">
           <div className="border-2 border-dashed border-gray-500 rounded-xl p-12 text-center">
             <p className="text-white text-lg font-medium">Drop files here</p>
-            <p className="text-gray-400 text-sm mt-1">Files will be added as nodes</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Files will be added as nodes
+            </p>
           </div>
         </div>
       )}
@@ -211,12 +253,12 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
         panOnDrag={true}
         selectionOnDrag={false}
         defaultEdgeOptions={{
-          type: 'bezier',
-          style: { stroke: '#404040', strokeWidth: 2 },
+          type: "bezier",
+          style: { stroke: "#404040", strokeWidth: 2 },
         }}
         proOptions={{ hideAttribution: true }}
         fitView={false}
-        connectionLineStyle={{ stroke: '#666', strokeWidth: 2 }}
+        connectionLineStyle={{ stroke: "#666", strokeWidth: 2 }}
         connectionLineType="bezier"
       >
         <Background
@@ -225,20 +267,25 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
           gap={20}
           size={1}
         />
-        <Controls 
-          className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden" 
+        <Controls
+          className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden"
           showInteractive={false}
           style={{ zIndex: 50 }}
         />
-        <MiniMap 
-          className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden" 
+        <MiniMap
+          className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden"
           nodeColor={(node) => {
             switch (node.type) {
-              case 'text': return '#fff';
-              case 'image': return '#10b981'; // green-500
-              case 'scratchpad': return '#8b5cf6'; // violet-500
-              case 'file': return '#3b82f6'; // blue-500
-              default: return '#666';
+              case "text":
+                return "#fff";
+              case "image":
+                return "#10b981"; // green-500
+              case "scratchpad":
+                return "#8b5cf6"; // violet-500
+              case "file":
+                return "#3b82f6"; // blue-500
+              default:
+                return "#666";
             }
           }}
           maskColor="rgba(0, 0, 0, 0.7)"
@@ -249,22 +296,26 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
         />
         <Toolbar />
       </ReactFlow>
-      
+
       <AutosaveStatus />
       <Sidebar onCanvasSelect={onCanvasSelect} />
-      
+
       {menu && (
-        <AddBlockMenu 
-          position={menu} 
-          onSelect={handleAddNode} 
-          onClose={() => setMenu(null)} 
+        <AddBlockMenu
+          position={menu}
+          onSelect={handleAddNode}
+          onClose={() => setMenu(null)}
         />
       )}
     </div>
   );
 }
 
-export default function Canvas({ onCanvasSelect }: { onCanvasSelect?: (id: string | null) => void }) {
+export default function Canvas({
+  onCanvasSelect,
+}: {
+  onCanvasSelect?: (id: string | null) => void;
+}) {
   return (
     <ReactFlowProvider>
       <CanvasContent onCanvasSelect={onCanvasSelect} />
