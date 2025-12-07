@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Pencil, Eraser, Trash2, Wand2, Loader2, Download, MoreHorizontal, MessageSquare, Image as ImageIcon } from 'lucide-react';
+import { Pencil, Eraser, Trash2, Wand2, Loader2, Download, MoreHorizontal, MessageSquare, Image as ImageIcon, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useCanvasStore } from '@/lib/store';
+import { useClickOutside } from '@/hooks/useClickOutside';
 
 export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,6 +19,11 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
+  const deleteNode = useCanvasStore((state) => state.deleteNode);
+  const duplicateNode = useCanvasStore((state) => state.duplicateNode);
+
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const moreMenuRef = useClickOutside<HTMLDivElement>(() => setShowMoreMenu(false), [moreBtnRef]);
   
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -183,6 +189,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
           
           <div className="relative nodrag">
             <button 
+              ref={moreBtnRef}
               onClick={() => setShowMoreMenu(!showMoreMenu)}
               className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
               title="More options"
@@ -191,7 +198,23 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
             </button>
             
             {showMoreMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left">
+              <div 
+                ref={moreMenuRef}
+                className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left"
+              >
+                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Actions</div>
+                <button
+                  onClick={() => { duplicateNode(id); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Copy size={14} /> Duplicate
+                </button>
+                <button
+                  onClick={() => { deleteNode(id); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors flex items-center gap-2 border-b border-gray-800"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
                 <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Convert to</div>
                 <button
                   onClick={() => { updateNodeType(id, 'text'); setShowMoreMenu(false); }}

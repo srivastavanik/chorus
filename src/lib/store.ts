@@ -41,6 +41,8 @@ export interface CanvasState {
     parentId?: string,
     data?: any
   ) => string;
+  deleteNode: (id: string) => void;
+  duplicateNode: (id: string) => string;
   addConnectedNode: (
     sourceId: string,
     sourceHandlePosition: "left" | "right",
@@ -155,19 +157,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       nodes: get().nodes.map((node) => {
         if (node.id !== id) return node;
-        
+
         let width = 450;
-        if (newType === 'image') width = 400;
-        if (newType === 'scratchpad') width = 352;
-        if (newType === 'file') width = 280;
+        if (newType === "image") width = 400;
+        if (newType === "scratchpad") width = 352;
+        if (newType === "file") width = 280;
 
         return {
           ...node,
           type: newType,
           width,
-          data: newType === 'text' 
-            ? { messages: [], label: '' }
-            : { label: `${newType} node` },
+          data:
+            newType === "text"
+              ? { messages: [], label: "" }
+              : { label: `${newType} node` },
         };
       }),
     });
@@ -472,6 +475,40 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
 
     set({ nodes: [...nodes, newNode], edges: newEdges });
+    return id;
+  },
+
+  deleteNode: (id) => {
+    const { nodes, edges } = get();
+    set({
+      nodes: nodes.filter((node) => node.id !== id),
+      edges: edges.filter((edge) => edge.source !== id && edge.target !== id),
+      selectedNodeId: get().selectedNodeId === id ? null : get().selectedNodeId,
+    });
+  },
+
+  duplicateNode: (sourceId) => {
+    const { nodes } = get();
+    const sourceNode = nodes.find((n) => n.id === sourceId);
+    if (!sourceNode) return "";
+
+    const id = crypto.randomUUID();
+    // Offset position slightly
+    const position = findEmptyPosition(
+      nodes,
+      sourceNode.position.x + 50,
+      sourceNode.position.y + 50
+    );
+
+    const newNode: Node = {
+      ...sourceNode,
+      id,
+      position,
+      selected: false,
+      data: { ...sourceNode.data }, // Shallow copy of data
+    };
+
+    set({ nodes: [...nodes, newNode] });
     return id;
   },
 

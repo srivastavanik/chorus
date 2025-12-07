@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/Input';
 import { 
   Image as ImageIcon, ChevronDown, Minus, Plus, Loader2, 
   RefreshCw, Download, Maximize2, ThumbsUp, ThumbsDown,
-  Upload, Wand2, MoreHorizontal, MessageSquare, Pencil
+  Upload, Wand2, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy
 } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store';
+import { useClickOutside } from '@/hooks/useClickOutside';
 
 const MODELS = [
   { id: 'grok-2-image', name: 'Grok 2 Image', description: 'Latest model' },
@@ -38,6 +39,16 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
+  const deleteNode = useCanvasStore((state) => state.deleteNode);
+  const duplicateNode = useCanvasStore((state) => state.duplicateNode);
+
+  const modelBtnRef = useRef<HTMLButtonElement>(null);
+  const qualityBtnRef = useRef<HTMLButtonElement>(null);
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+
+  const modelMenuRef = useClickOutside<HTMLDivElement>(() => setShowModelMenu(false), [modelBtnRef]);
+  const qualityMenuRef = useClickOutside<HTMLDivElement>(() => setShowQualityMenu(false), [qualityBtnRef]);
+  const moreMenuRef = useClickOutside<HTMLDivElement>(() => setShowMoreMenu(false), [moreBtnRef]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -135,6 +146,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
           {/* Model selector */}
           <div className="relative">
             <button 
+              ref={modelBtnRef}
               onClick={() => setShowModelMenu(!showModelMenu)}
               className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors nodrag"
             >
@@ -143,7 +155,10 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             </button>
             
             {showModelMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[180px] py-1">
+              <div 
+                ref={modelMenuRef}
+                className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[180px] py-1"
+              >
                 {MODELS.map((m) => (
                   <button
                     key={m.id}
@@ -160,6 +175,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
           <div className="relative nodrag">
             <button 
+              ref={moreBtnRef}
               onClick={() => setShowMoreMenu(!showMoreMenu)}
               className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
               title="More options"
@@ -168,7 +184,23 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             </button>
             
             {showMoreMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left">
+              <div 
+                ref={moreMenuRef}
+                className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left"
+              >
+                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Actions</div>
+                <button
+                  onClick={() => { duplicateNode(id); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Copy size={14} /> Duplicate
+                </button>
+                <button
+                  onClick={() => { deleteNode(id); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors flex items-center gap-2 border-b border-gray-800"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
                 <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Convert to</div>
                 <button
                   onClick={() => { updateNodeType(id, 'text'); setShowMoreMenu(false); }}
@@ -312,6 +344,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
           {/* Quality Dropdown */}
           <div className="relative">
             <button 
+              ref={qualityBtnRef}
               onClick={() => setShowQualityMenu(!showQualityMenu)}
               className="flex items-center gap-2 px-3 py-1.5 bg-[#252525] border border-gray-700 rounded-md text-xs text-gray-300 hover:bg-gray-700 transition-colors"
             >
@@ -320,7 +353,10 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             </button>
             
             {showQualityMenu && (
-              <div className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[150px] py-1">
+              <div 
+                ref={qualityMenuRef}
+                className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[150px] py-1"
+              >
                 {QUALITY_OPTIONS.map((q) => (
                   <button
                     key={q.id}

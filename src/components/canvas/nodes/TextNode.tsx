@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/Input';
 import { 
   Play, Loader2, Globe, MoreHorizontal, ChevronDown, ChevronUp, 
   Edit3, GitBranch, Check, X, RotateCcw, Sparkles, ThumbsUp, ThumbsDown,
-  RefreshCw, Copy, Image as ImageIcon, Pencil
+  RefreshCw, Copy, Image as ImageIcon, Pencil, Trash2, Duplicate
 } from 'lucide-react';
 import { useCanvasStore, ChatMessage } from '@/lib/store';
 import { getAncestorContext } from '@/lib/context';
+import { useClickOutside } from '@/hooks/useClickOutside';
 
 interface StreamEvent {
   type: 'content' | 'reasoning' | 'status' | 'done';
@@ -76,8 +77,18 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const splitNode = useCanvasStore((state) => state.splitNode);
   const rateMessage = useCanvasStore((state) => state.rateMessage);
   const reimagineNode = useCanvasStore((state) => state.reimagineNode);
+  const deleteNode = useCanvasStore((state) => state.deleteNode);
+  const duplicateNode = useCanvasStore((state) => state.duplicateNode);
   
   const messages: ChatMessage[] = data.messages || [];
+
+  const modelBtnRef = useRef<HTMLButtonElement>(null);
+  const splitBtnRef = useRef<HTMLButtonElement>(null);
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+
+  const modelMenuRef = useClickOutside<HTMLDivElement>(() => setShowModelMenu(false), [modelBtnRef]);
+  const splitMenuRef = useClickOutside<HTMLDivElement>(() => setShowSplitMenu(false), [splitBtnRef]);
+  const moreMenuRef = useClickOutside<HTMLDivElement>(() => setShowMoreMenu(false), [moreBtnRef]);
 
   // Detect list items in the last assistant message
   useEffect(() => {
@@ -224,6 +235,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing drag-handle">
         <div className="flex items-center gap-2 relative">
           <button 
+            ref={modelBtnRef}
             onClick={() => setShowModelMenu(!showModelMenu)}
             className="flex items-center gap-1 text-xs text-gray-400 font-medium hover:text-white transition-colors nodrag"
             title="Select model"
@@ -233,7 +245,10 @@ export function TextNode({ id, data, selected }: NodeProps) {
           </button>
           
           {showModelMenu && (
-            <div className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] py-1 nodrag cursor-default">
+            <div 
+              ref={modelMenuRef}
+              className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] py-1 nodrag cursor-default"
+            >
               {MODELS.map((m) => (
                 <button
                   key={m.id}
@@ -259,6 +274,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
           
           <div className="relative nodrag">
             <button 
+              ref={splitBtnRef}
               onClick={() => setShowSplitMenu(!showSplitMenu)}
               className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
               title="Branch into multiple nodes"
@@ -267,7 +283,10 @@ export function TextNode({ id, data, selected }: NodeProps) {
             </button>
             
             {showSplitMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[180px] py-1 nopan nodrag">
+              <div 
+                ref={splitMenuRef}
+                className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[180px] py-1 nopan nodrag"
+              >
                 <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Branch options</div>
                 
                 {/* Smart split option if items detected */}
@@ -297,6 +316,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
           
           <div className="relative nodrag">
             <button 
+              ref={moreBtnRef}
               onClick={() => setShowMoreMenu(!showMoreMenu)}
               className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
               title="More options"
@@ -305,7 +325,23 @@ export function TextNode({ id, data, selected }: NodeProps) {
             </button>
             
             {showMoreMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left">
+              <div 
+                ref={moreMenuRef}
+                className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[160px] py-1 text-left"
+              >
+                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Actions</div>
+                <button
+                  onClick={() => { duplicateNode(id); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Copy size={14} /> Duplicate
+                </button>
+                <button
+                  onClick={() => { deleteNode(id); setShowMoreMenu(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors flex items-center gap-2 border-b border-gray-800"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
                 <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Convert to</div>
                 <button
                   onClick={() => { updateNodeType(id, 'image'); setShowMoreMenu(false); }}
