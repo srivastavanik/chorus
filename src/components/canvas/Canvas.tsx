@@ -35,7 +35,7 @@ const edgeTypes = {
   bezier: BezierEdge,
 };
 
-function CanvasContent() {
+function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null) => void }) {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addConnectedNode, addFileNode, setSelectedNodeId, saveCanvas, user } = useCanvasStore(
     useShallow((state) => ({
       nodes: state.nodes,
@@ -236,7 +236,7 @@ function CanvasContent() {
         <Toolbar />
       </ReactFlow>
       
-      <Sidebar />
+      <Sidebar onCanvasSelect={onCanvasSelect} />
       
       {menu && (
         <AddBlockMenu 
@@ -249,10 +249,10 @@ function CanvasContent() {
   );
 }
 
-export default function Canvas() {
+export default function Canvas({ onCanvasSelect }: { onCanvasSelect?: (id: string | null) => void }) {
   return (
     <ReactFlowProvider>
-      <CanvasContent />
+      <CanvasContent onCanvasSelect={onCanvasSelect} />
     </ReactFlowProvider>
   );
 }

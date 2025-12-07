@@ -15,7 +15,11 @@ interface CanvasHistory {
   updated_at: string;
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  onCanvasSelect?: (id: string | null) => void;
+}
+
+export function Sidebar({ onCanvasSelect }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [history, setHistory] = useState<CanvasHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,12 +50,18 @@ export function Sidebar() {
   };
 
   const handleNewCanvas = () => {
-    // Force a reload to reset state is one way, but ideally we should reset store
-    // For now, let's keep reload but add a small delay or check to avoid multi-click issues
-    // Or better, just redirect to home if we were using router params, but we aren't.
-    // The issue of "5 canvases" might be race conditions in the page load.
-    // Let's rely on standard window.location.href = '/' to be cleaner than reload()
-    window.location.href = '/';
+    if (onCanvasSelect) {
+      onCanvasSelect(null);
+    } else {
+      // Fallback if not passed, though it should be
+      window.location.href = '/';
+    }
+  };
+
+  const handleCanvasClick = (id: string) => {
+    if (onCanvasSelect) {
+      onCanvasSelect(id);
+    }
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -122,19 +132,8 @@ export function Sidebar() {
       }`}
     >
       <div className={`flex flex-col h-full overflow-hidden ${!isOpen && 'hidden'}`}>
-        {/* Header with Logo */}
-        <div className="p-4 border-b border-gray-800 flex items-center justify-center">
-          <div className="w-24 h-24 relative select-none">
-            <Image 
-              src="/logo.png" 
-              alt="Logo" 
-              fill 
-              sizes="96px" 
-              className="object-contain" 
-              draggable={false}
-            />
-          </div>
-        </div>
+        {/* Header Area (Logo Removed) */}
+        <div className="h-4" /> {/* Spacer since we removed the logo header */}
 
         {/* New Canvas Button */}
         <div className="p-3">
@@ -174,6 +173,7 @@ export function Sidebar() {
               <div 
                 key={item.id} 
                 className="group flex items-center gap-3 p-2 rounded-lg hover:bg-gray-800/50 cursor-pointer transition-colors relative"
+                onClick={() => handleCanvasClick(item.id)}
               >
                 <Clock size={14} className="text-gray-500 group-hover:text-gray-400 flex-shrink-0" />
                 

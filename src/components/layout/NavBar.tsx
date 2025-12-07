@@ -28,7 +28,6 @@ export function NavBar({ onHomeClick }: { onHomeClick: () => void }) {
             onClick={onHomeClick}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors px-2 py-1 rounded-md hover:bg-white/5"
         >
-            <Home size={14} />
             Dashboard
         </button>
       </div>

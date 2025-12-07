@@ -80,7 +80,7 @@ function AppContent() {
         {view === 'dashboard' ? (
           <Dashboard onOpenCanvas={handleOpenCanvas} />
         ) : (
-          <Canvas />
+          <Canvas onCanvasSelect={handleOpenCanvas} />
         )}
       </main>
     </div>
