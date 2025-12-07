@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Plus, ChevronLeft, ChevronRight, Search, 
-  MoreHorizontal, Clock
+  MoreHorizontal, Clock, Trash2
 } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,7 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const [history, setHistory] = useState<CanvasHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMenuId, setShowMenuId] = useState<string | null>(null);
   
   useEffect(() => {
     loadHistory();
@@ -26,18 +27,29 @@ export function Sidebar() {
 
   const loadHistory = async () => {
     try {
-      const { data, error } = await supabase
-        .from('canvases')
-        .select('id, name, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(20);
-      
-      if (error) throw error;
-      setHistory(data || []);
+      // ... existing load logic ...
+      // For now, we'll rely on the auto-fetched list from page load if we can, or refetch.
+      // Since we are using supabase client here directly but we want to use our API for consistency/auth:
+      const res = await fetch('/api/canvas');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setHistory(data);
+      }
     } catch (err) {
       console.error('Failed to load history:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/canvas?id=${id}`, { method: 'DELETE' });
+      setHistory(prev => prev.filter(c => c.id !== id));
+      setShowMenuId(null);
+    } catch (err) {
+      console.error('Delete failed', err);
     }
   };
 
@@ -118,12 +130,29 @@ export function Sidebar() {
                   <div className="text-sm text-gray-300 truncate group-hover:text-white">{item.name}</div>
                   <div className="text-[10px] text-gray-600">{formatDate(item.updated_at)}</div>
                 </div>
-                <button 
-                  className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-white hover:bg-gray-700 rounded transition-all"
-                  title="More options"
-                >
-                  <MoreHorizontal size={14} />
-                </button>
+                <div className="relative">
+                  <button 
+                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-white hover:bg-gray-700 rounded transition-all"
+                    title="More options"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenuId(showMenuId === item.id ? null : item.id);
+                    }}
+                  >
+                    <MoreHorizontal size={14} />
+                  </button>
+                  {showMenuId === item.id && (
+                    <div className="absolute right-0 top-full mt-1 w-32 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 py-1">
+                      <button
+                        onClick={(e) => handleDelete(item.id, e)}
+                        className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-gray-800 hover:text-red-300 flex items-center gap-2"
+                      >
+                        <Trash2 size={12} />
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}

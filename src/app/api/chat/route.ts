@@ -7,13 +7,7 @@ export async function POST(req: Request) {
   try {
     const { messages, model, webSearch } = await req.json();
 
-    // For web search, use the Responses API
-    if (webSearch) {
-      return handleResponsesAPI(messages, model);
-    }
-
-    // For regular chat, use Chat Completions API
-    return handleChatCompletions(messages, model);
+    return handleChatCompletions(messages, model, webSearch);
   } catch (error) {
     console.error('Chat API Error:', error);
     return NextResponse.json(
@@ -23,39 +17,31 @@ export async function POST(req: Request) {
   }
 }
 
-// ... (imports)
-
 // Helper to process message content for vision/files
 function processMessages(messages: any[]) {
   return messages.map((m: any) => {
-    // If content is already an array or object, leave it (or validate structure)
     if (typeof m.content !== 'string') {
       return { role: m.role, content: m.content };
     }
-
-    // Check if content has our [Attached: file1, file2] pattern
-    // This is a simplistic check. In a real app, we'd likely structure the internal message object differently
-    // to store attachments separately from text content before sending to API.
-    // However, based on our TextNode implementation:
-    // const userContent = attachedFiles.length > 0 ? `${submitPrompt}\n\n[Attached: ${attachedFiles.join(', ')}]` : submitPrompt;
-    
-    // We need to Parse this and convert to xAI content array format if files are present.
-    // BUT, "attachedFiles" in TextNode currently are just names. We don't have the xAI File ID there yet.
-    // TextNode needs to be updated to send { type: 'input_file', file_id: ... }
-    
-    // Since we haven't fully implemented the client-side file ID storage in TextNode yet (it's storing names),
-    // we can't fully map this here without that data.
-    
-    // ASSUMPTION: The client will send the correct structure if it has file IDs.
-    // If the client sends a string, we pass it as a string.
     return { role: m.role, content: m.content };
   });
 }
 
-async function handleChatCompletions(messages: any[], model: string) {
-  // Process messages to handle file/image content structures if passed from client
-  // For now, just pass through, assuming client sends correct structure
-  const processedMessages = messages; 
+async function handleChatCompletions(messages: any[], model: string, webSearch?: boolean) {
+  const processedMessages = processMessages(messages);
+
+  const body: any = {
+    model: model || 'grok-4-fast',
+    messages: processedMessages,
+    stream: true,
+  };
+
+  if (webSearch) {
+    body.search_parameters = {
+      mode: 'auto',
+      return_citations: true,
+    };
+  }
 
   const response = await fetch(`${XAI_BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -63,13 +49,8 @@ async function handleChatCompletions(messages: any[], model: string) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${XAI_API_KEY}`,
     },
-    body: JSON.stringify({
-      model: model || 'grok-4-fast',
-      messages: processedMessages,
-      stream: true,
-    }),
+    body: JSON.stringify(body),
   });
-// ...
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -90,11 +71,16 @@ async function handleChatCompletions(messages: any[], model: string) {
         if (line.startsWith('data: ') && line !== 'data: [DONE]') {
           try {
             const data = JSON.parse(line.slice(6));
-            const content = data.choices?.[0]?.delta?.content;
+            const delta = data.choices?.[0]?.delta;
+            const content = delta?.content;
+            
             // Check multiple reasoning fields as API might vary
-            const reasoningContent = data.choices?.[0]?.delta?.reasoning_content || data.choices?.[0]?.delta?.reasoning;
+            const reasoningContent = delta?.reasoning_content || delta?.reasoning;
             const reasoningTokens = data.usage?.reasoning_tokens;
             
+            // Citations usually come in the final chunk or separate event
+            const citations = data.citations;
+
             if (reasoningContent) {
               controller.enqueue(encoder.encode(JSON.stringify({
                 type: 'reasoning',
@@ -109,92 +95,18 @@ async function handleChatCompletions(messages: any[], model: string) {
                 reasoning_tokens: reasoningTokens || 0,
               }) + '\n'));
             }
-          } catch (e) {
-            // Skip invalid JSON
-          }
-        } else if (line === 'data: [DONE]') {
-          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
-        }
-      }
-    },
-  });
-
-  return new NextResponse(response.body?.pipeThrough(transformStream), {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
-}
-
-async function handleResponsesAPI(messages: any[], model: string) {
-  // Convert messages format for Responses API
-  const input = messages.map((m: any) => ({
-    role: m.role,
-    content: m.content,
-  }));
-
-  const response = await fetch(`${XAI_BASE_URL}/responses`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${XAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: model || 'grok-4-fast',
-      input,
-      tools: [{ type: 'web_search' }],
-      stream: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('xAI Responses API error:', errorText);
-    throw new Error(`API error: ${response.status}`);
-  }
-
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-  
-  const transformStream = new TransformStream({
-    async transform(chunk, controller) {
-      const text = decoder.decode(chunk);
-      const lines = text.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-          try {
-            const data = JSON.parse(line.slice(6));
             
-            // Handle different event types
-            if (data.type === 'response.output_text.delta') {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'content',
-                content: data.delta || '',
-              }) + '\n'));
-            } else if (data.type === 'response.web_search.searching') {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'status',
-                status: 'searching',
-                message: 'Searching the web...',
-              }) + '\n'));
-            } else if (data.type === 'response.reasoning.delta') {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'reasoning',
-                content: data.delta || '',
-              }) + '\n'));
-            } else if (data.type === 'response.done') {
-              const citations = data.response?.citations || [];
-              controller.enqueue(encoder.encode(JSON.stringify({
+            if (citations) {
+               controller.enqueue(encoder.encode(JSON.stringify({
                 type: 'done',
-                citations,
+                citations: citations,
               }) + '\n'));
             }
           } catch (e) {
             // Skip invalid JSON
           }
+        } else if (line === 'data: [DONE]') {
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
         }
       }
     },

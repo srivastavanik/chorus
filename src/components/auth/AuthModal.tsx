@@ -64,7 +64,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
 
       {/* Left Side: Login Form */}
       <div className="w-full md:w-1/2 h-full flex flex-col justify-center items-center px-8 md:px-20 bg-black relative z-10">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-md space-y-8">
           <div className="mb-12">
             <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
               {isLogin ? 'Welcome back' : 'Create account'}
@@ -164,9 +164,6 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
           </h2>
           <div className="space-y-8">
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <span className="text-white font-bold text-xs">1</span>
-              </div>
               <div>
                 <h3 className="text-white font-medium mb-1">Infinite Canvas</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
@@ -176,9 +173,6 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
             </div>
             
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <span className="text-white font-bold text-xs">2</span>
-              </div>
               <div>
                 <h3 className="text-white font-medium mb-1">Multimodal Intelligence</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
@@ -188,9 +182,6 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
             </div>
 
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <span className="text-white font-bold text-xs">3</span>
-              </div>
               <div>
                 <h3 className="text-white font-medium mb-1">Deep Reasoning</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
