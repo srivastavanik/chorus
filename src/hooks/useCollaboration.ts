@@ -38,7 +38,8 @@ interface BroadcastPayload {
 }
 
 const CURSOR_THROTTLE_MS = 75; // Throttle cursor updates (balanced for 5+ users)
-const SYNC_INTERVAL_MS = 10000; // Sync canvas state every 10 seconds
+const SYNC_INTERVAL_MS = 30000; // Sync canvas state every 30 seconds (reduced to minimize conflicts)
+const NODE_GRACE_PERIOD_MS = 45000; // 45s grace period to preserve recent/local nodes
 
 export function useCollaboration({
   canvasId,
@@ -61,6 +62,10 @@ export function useCollaboration({
   // Track current state for presence updates
   const currentCursorRef = useRef<{ x: number; y: number } | null>(null);
   const currentActiveNodeRef = useRef<string | null>(null);
+  
+  // Track nodes/edges received via broadcast (not yet confirmed by server)
+  const pendingNodeIdsRef = useRef<Set<string>>(new Set());
+  const pendingEdgeIdsRef = useRef<Set<string>>(new Set());
 
   // Store actions
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
@@ -162,7 +167,18 @@ export function useCollaboration({
             const currentNodes = useCanvasStore.getState().nodes;
             const exists = currentNodes.some(n => n.id === data.node.id);
             if (!exists) {
-              setNodes([...currentNodes, data.node]);
+              // Mark as pending (received via broadcast, not yet on server)
+              pendingNodeIdsRef.current.add(data.node.id);
+              // Set a local receivedAt timestamp if node doesn't have createdAt
+              const nodeToAdd = data.node.createdAt 
+                ? data.node 
+                : { ...data.node, createdAt: Date.now() };
+              setNodes([...currentNodes, nodeToAdd]);
+              
+              // Auto-clear from pending after grace period
+              setTimeout(() => {
+                pendingNodeIdsRef.current.delete(data.node.id);
+              }, NODE_GRACE_PERIOD_MS);
             }
           }
           // Also handle edges if provided
@@ -170,7 +186,12 @@ export function useCollaboration({
             const currentEdges = useCanvasStore.getState().edges;
             const edgeExists = currentEdges.some(e => e.id === data.edge.id);
             if (!edgeExists) {
+              pendingEdgeIdsRef.current.add(data.edge.id);
               setEdges([...currentEdges, data.edge]);
+              
+              setTimeout(() => {
+                pendingEdgeIdsRef.current.delete(data.edge.id);
+              }, NODE_GRACE_PERIOD_MS);
             }
           }
           break;
@@ -187,23 +208,47 @@ export function useCollaboration({
           }
           break;
         case "full_sync":
-          // Full sync only for explicit full sync
+          // Full sync - merge rather than replace to preserve pending local state
           if (data.nodes || data.edges) {
-            // Only replace if incoming has newer or different length to avoid overwriting fresh local state
             const currentNodes = useCanvasStore.getState().nodes;
             const currentEdges = useCanvasStore.getState().edges;
-            const incomingNodes = data.nodes || currentNodes;
-            const incomingEdges = data.edges || currentEdges;
+            const incomingNodes = data.nodes || [];
+            const incomingEdges = data.edges || [];
 
-            const nodesChanged = incomingNodes.length !== currentNodes.length;
-            const edgesChanged = incomingEdges.length !== currentEdges.length;
+            // Smart merge: start with incoming, preserve pending/recent local items
+            const incomingNodeIds = new Set(incomingNodes.map((n: any) => n.id));
+            const mergedNodes = [...incomingNodes];
+            
+            currentNodes.forEach((localNode: any) => {
+              if (!incomingNodeIds.has(localNode.id)) {
+                const isUploading = localNode.data?.uploading === true;
+                const isRecent = localNode.createdAt && (Date.now() - localNode.createdAt < NODE_GRACE_PERIOD_MS);
+                const isPending = pendingNodeIdsRef.current.has(localNode.id);
+                
+                if (isUploading || isRecent || isPending) {
+                  mergedNodes.push(localNode);
+                }
+              }
+            });
 
-            if (nodesChanged || edgesChanged) {
-              setNodes(incomingNodes);
-              setEdges(incomingEdges);
-              // Snapshot stable state
-              useCanvasStore.setState({ stableCanvasState: { nodes: incomingNodes, edges: incomingEdges } });
-            }
+            const incomingEdgeIds = new Set(incomingEdges.map((e: any) => e.id));
+            const mergedEdges = [...incomingEdges];
+            
+            currentEdges.forEach((localEdge: any) => {
+              if (!incomingEdgeIds.has(localEdge.id)) {
+                const isPending = pendingEdgeIdsRef.current.has(localEdge.id);
+                const sourceExists = mergedNodes.some((n: any) => n.id === localEdge.source);
+                const targetExists = mergedNodes.some((n: any) => n.id === localEdge.target);
+                
+                if (isPending && sourceExists && targetExists) {
+                  mergedEdges.push(localEdge);
+                }
+              }
+            });
+
+            setNodes(mergedNodes);
+            setEdges(mergedEdges);
+            useCanvasStore.setState({ stableCanvasState: { nodes: mergedNodes, edges: mergedEdges } });
           }
           break;
         case "edge:create":
@@ -212,10 +257,16 @@ export function useCollaboration({
             const currentEdges = useCanvasStore.getState().edges;
             const exists = currentEdges.some(e => e.id === data.edge.id);
             if (!exists) {
+              pendingEdgeIdsRef.current.add(data.edge.id);
               setEdges([...currentEdges, data.edge]);
+              
+              setTimeout(() => {
+                pendingEdgeIdsRef.current.delete(data.edge.id);
+              }, NODE_GRACE_PERIOD_MS);
             }
           } else if (data.edges) {
-            // Fallback for legacy broadcasts
+            // Fallback for legacy broadcasts - mark all as pending
+            data.edges.forEach((e: any) => pendingEdgeIdsRef.current.add(e.id));
             setEdges(data.edges);
           }
           break;
@@ -294,26 +345,47 @@ export function useCollaboration({
             const currentNodes = useCanvasStore.getState().nodes;
             const currentEdges = useCanvasStore.getState().edges;
 
-            // Smart Merge for Nodes
-            // 1. Start with server nodes (authoritative for existing/shared state)
+            // === Smart Merge for Nodes ===
+            // Start with server nodes (authoritative for existing/shared state)
             const mergedNodes = [...(serverNodes || [])];
             const serverNodeIds = new Set(mergedNodes.map((n: any) => n.id));
 
-            // 2. Preserve local nodes that are uploading or very recent (haven't synced yet)
+            // Preserve local nodes that should not be overwritten
             currentNodes.forEach((localNode: any) => {
               if (!serverNodeIds.has(localNode.id)) {
                 const isUploading = localNode.data?.uploading === true;
-                const isRecent = localNode.createdAt && (Date.now() - localNode.createdAt < 15000); // 15s grace
+                const isRecent = localNode.createdAt && (Date.now() - localNode.createdAt < NODE_GRACE_PERIOD_MS);
+                const isPending = pendingNodeIdsRef.current.has(localNode.id);
                 
-                if (isUploading || isRecent) {
+                // Preserve if: uploading, recently created, or received via broadcast
+                if (isUploading || isRecent || isPending) {
                   mergedNodes.push(localNode);
                 }
               }
             });
 
+            // === Smart Merge for Edges ===
+            // Start with server edges
+            const mergedEdges = [...(serverEdges || [])];
+            const serverEdgeIds = new Set(mergedEdges.map((e: any) => e.id));
+
+            // Preserve local edges that are pending (received via broadcast but not yet on server)
+            currentEdges.forEach((localEdge: any) => {
+              if (!serverEdgeIds.has(localEdge.id)) {
+                const isPending = pendingEdgeIdsRef.current.has(localEdge.id);
+                // Also check if both source and target nodes exist in merged nodes
+                const sourceExists = mergedNodes.some((n: any) => n.id === localEdge.source);
+                const targetExists = mergedNodes.some((n: any) => n.id === localEdge.target);
+                
+                if (isPending && sourceExists && targetExists) {
+                  mergedEdges.push(localEdge);
+                }
+              }
+            });
+
             setNodes(mergedNodes);
-            setEdges(serverEdges || []);
-            useCanvasStore.setState({ stableCanvasState: { nodes: mergedNodes, edges: serverEdges || [] } });
+            setEdges(mergedEdges);
+            useCanvasStore.setState({ stableCanvasState: { nodes: mergedNodes, edges: mergedEdges } });
           }
         }
       } catch (e) {
@@ -321,10 +393,10 @@ export function useCollaboration({
       }
     };
 
-    // Initial sync after short delay
-    const initialTimeout = setTimeout(syncFromServer, 1500);
+    // Initial sync after longer delay to allow broadcasts to settle
+    const initialTimeout = setTimeout(syncFromServer, 3000);
     
-    // Periodic sync
+    // Periodic sync (less frequent to reduce conflicts)
     syncIntervalRef.current = setInterval(syncFromServer, SYNC_INTERVAL_MS);
 
     return () => {
@@ -403,6 +475,22 @@ export function useCollaboration({
     broadcast("full_sync", { nodes, edges });
   }, [broadcast, nodes, edges]);
 
+  // Mark a node as pending (created locally, not yet confirmed by server)
+  const markNodePending = useCallback((nodeId: string) => {
+    pendingNodeIdsRef.current.add(nodeId);
+    setTimeout(() => {
+      pendingNodeIdsRef.current.delete(nodeId);
+    }, NODE_GRACE_PERIOD_MS);
+  }, []);
+
+  // Mark an edge as pending
+  const markEdgePending = useCallback((edgeId: string) => {
+    pendingEdgeIdsRef.current.add(edgeId);
+    setTimeout(() => {
+      pendingEdgeIdsRef.current.delete(edgeId);
+    }, NODE_GRACE_PERIOD_MS);
+  }, []);
+
   return {
     collaborators,
     myColor,
@@ -412,5 +500,7 @@ export function useCollaboration({
     updateCursor,
     setActiveNode,
     forceSyncState,
+    markNodePending,
+    markEdgePending,
   };
 }

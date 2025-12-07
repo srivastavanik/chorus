@@ -78,7 +78,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
     }))
   );
 
-  const { collaborators, broadcast, setActiveNode, updateCursor, myColor, setMyColor } = useCollaborationContext();
+  const { collaborators, broadcast, setActiveNode, updateCursor, myColor, setMyColor, markNodePending, markEdgePending } = useCollaborationContext();
 
   // Get canvas ID for auto-versioning
   const canvasId = useCanvasStore((state) => state.canvasId);
@@ -183,10 +183,12 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
       const edgesAfter = useCanvasStore.getState().edges;
       const newEdges = edgesAfter.filter(e => !edgesBefore.some(eb => eb.id === e.id));
       newEdges.forEach(edge => {
+        // Mark as pending to protect from sync overwrites
+        markEdgePending(edge.id);
         broadcast("edge:create", { edge });
       });
     },
-    [onEdgesChange, broadcast]
+    [onEdgesChange, broadcast, markEdgePending]
   );
 
   // Wrap onConnect to broadcast edge connections
@@ -199,11 +201,13 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
         const edgesAfter = useCanvasStore.getState().edges;
         const newEdge = edgesAfter.find(e => !edgesBefore.some(eb => eb.id === e.id));
         if (newEdge) {
+          // Mark as pending to protect from sync overwrites
+          markEdgePending(newEdge.id);
           broadcast("edge:create", { edge: newEdge });
         }
       }, 0);
     },
-    [onConnect, broadcast]
+    [onConnect, broadcast, markEdgePending]
   );
 
   const onPaneContextMenu = useCallback(
@@ -231,6 +235,8 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
       const nodesAfter = useCanvasStore.getState().nodes;
       const newNode = nodesAfter.find(n => !nodesBefore.some(nb => nb.id === n.id));
       if (newNode) {
+        // Mark as pending to protect from sync overwrites
+        markNodePending(newNode.id);
         broadcast("node:create", { node: newNode });
       }
     }
@@ -291,6 +297,11 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
           const newNode = nodesAfter.find(n => !nodesBefore.some(nb => nb.id === n.id));
           const newEdge = edgesAfter.find(e => !edgesBefore.some(eb => eb.id === e.id));
           if (newNode) {
+            // Mark as pending to protect from sync overwrites
+            markNodePending(newNode.id);
+            if (newEdge) {
+              markEdgePending(newEdge.id);
+            }
             broadcast("node:create", { node: newNode, edge: newEdge });
           }
         }, 0);
@@ -298,7 +309,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
 
       connectingNodeRef.current = null;
     },
-    [screenToFlowPosition, addConnectedNode, broadcast]
+    [screenToFlowPosition, addConnectedNode, broadcast, markNodePending, markEdgePending]
   );
 
   // File drag and drop handlers
@@ -336,10 +347,12 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
       const nodesAfter = useCanvasStore.getState().nodes;
       const newNodes = nodesAfter.filter(n => !nodesBefore.some(nb => nb.id === n.id));
       newNodes.forEach(node => {
+        // Mark as pending to protect from sync overwrites
+        markNodePending(node.id);
         broadcast("node:create", { node });
       });
     },
-    [screenToFlowPosition, addFileNode, broadcast]
+    [screenToFlowPosition, addFileNode, broadcast, markNodePending]
   );
 
   // Mouse move for cursor tracking

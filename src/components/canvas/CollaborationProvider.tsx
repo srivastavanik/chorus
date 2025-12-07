@@ -16,6 +16,8 @@ interface CollaborationContextType {
   setActiveNode: (nodeId: string | null) => void;
   forceSyncState: () => void;
   getNodeBorderColor: (nodeId: string) => string | null;
+  markNodePending: (nodeId: string) => void;
+  markEdgePending: (edgeId: string) => void;
 }
 
 const CollaborationContext = createContext<CollaborationContextType | null>(null);
@@ -48,6 +50,8 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
     updateCursor,
     setActiveNode,
     forceSyncState,
+    markNodePending,
+    markEdgePending,
   } = useCollaboration({
     canvasId,
     userId: user?.id || null,
@@ -87,6 +91,8 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
         setActiveNode,
         forceSyncState,
         getNodeBorderColor,
+        markNodePending,
+        markEdgePending,
       }}
     >
       {children}
@@ -108,6 +114,8 @@ export function useCollaborationContext() {
       setActiveNode: () => {},
       forceSyncState: () => {},
       getNodeBorderColor: () => null,
+      markNodePending: () => {},
+      markEdgePending: () => {},
     };
   }
   return context;
