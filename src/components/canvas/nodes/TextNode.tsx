@@ -163,39 +163,81 @@ export function TextNode({ id, data, selected }: NodeProps) {
     setStatus(null);
     setCitations([]);
     
-    // Construct content. If files are attached, we mention them in display, 
-    // but the logic handled by backend uses file_ids
-    const attachedNames = attachedFiles.map(f => f.name).join(', ');
-    const userContent = attachedFiles.length > 0 
-      ? `${submitPrompt}\n\n[Attached: ${attachedNames}]` 
-      : submitPrompt;
+    // Gather connected context: File/Image nodes connected to inputs of this node
+    const { nodes, edges } = useCanvasStore.getState();
+    const incomingEdges = edges.filter(e => e.target === id);
+    const connectedNodes = incomingEdges.map(e => nodes.find(n => n.id === e.source)).filter(Boolean);
 
-    // Store attached file IDs
-    const validFileIds = attachedFiles.map(f => f.id).filter(Boolean) as string[];
+    // Collect file IDs from connected File nodes
+    const connectedFileIds = connectedNodes
+        .filter(n => n?.type === 'file' && n.data?.xaiFileId)
+        .map(n => n!.data.xaiFileId);
+
+    // Collect image URLs from connected Image nodes or Scratchpad nodes (if generated)
+    // Note: Scratchpad nodes might have 'generatedImage' or we might need to handle raw sketch if possible
+    // For now let's support ImageNode outputs and Scratchpad 'generated' images
+    const connectedImageUrls = connectedNodes
+        .filter(n => (n?.type === 'image' && n.data?.images?.[0]?.url) || (n?.type === 'scratchpad' && n.data?.generatedImage))
+        .map(n => n?.type === 'image' ? n!.data.images[0].url : n!.data.generatedImage);
+
+    // Also check if ImageNode has editImage (source) if no generated image?
+    // Usually we want the output. If user connects an ImageNode with an uploaded image, that's in editImage usually?
+    // Let's check ImageNode implementation. It puts uploaded/generated in 'images' or 'editImage'.
+    // Simplified: if images[0].url exists use it, else editImage.
+    const sourceImages = connectedNodes
+        .filter(n => n?.type === 'image' && !n.data?.images?.[0]?.url && n.data?.editImage)
+        .map(n => n!.data.editImage);
+    
+    const allImageUrls = [...connectedImageUrls, ...sourceImages];
+
+    // Combine with manual attachments
+    const manualFileIds = attachedFiles.map(f => f.id).filter(Boolean) as string[];
+    const validFileIds = [...new Set([...connectedFileIds, ...manualFileIds])];
+
+    // Construct display content for user message
+    const attachedNames = [
+        ...attachedFiles.map(f => f.name),
+        ...connectedNodes.map(n => n?.data.label || n?.type || 'Connected Node')
+    ].join(', ');
+    
+    const userContent = attachedNames.length > 0 
+      ? `${submitPrompt}\n\n[Context: ${attachedNames}]` 
+      : submitPrompt;
 
     addMessageToNode(id, { role: 'user', content: userContent });
     setAttachedFiles([]); // Clear attachments after sending
     
     try {
-      const { nodes, edges } = useCanvasStore.getState();
       const currentNode = nodes.find(n => n.id === id);
       const currentMessages = currentNode?.data.messages || [];
       
       const context = getAncestorContext(id, nodes, edges);
       
+      // Filter out the last message which we just added (it's in currentMessages)
+      // Actually getAncestorContext gets *ancestors*, not current node history fully?
+      // getAncestorContext returns flattened history of parents.
+      // We need to append current node's history.
+      
       const nodeMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
-      // currentMessages already includes the new user message we just added
       const allMessages = [...context, ...nodeMessages];
+
+      // Prepare payload
+      const payload: any = {
+        messages: allMessages,
+        model,
+        webSearch,
+        attachedFileIds: validFileIds
+      };
+
+      // If we have images, we need to format the LAST user message to include them for Vision
+      if (allImageUrls.length > 0) {
+        payload.imageUrls = allImageUrls;
+      }
 
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            messages: allMessages, 
-            model, 
-            webSearch,
-            attachedFileIds: validFileIds 
-        }),
+        body: JSON.stringify(payload),
       });
       
       if (!response.ok) throw new Error('Failed to fetch');
@@ -229,7 +271,6 @@ export function TextNode({ id, data, selected }: NodeProps) {
             } else if (event.type === 'reasoning' && event.content) {
               accumulatedReasoning += event.content;
               setReasoning(accumulatedReasoning);
-              // Also update message state so it persists if we refresh or switch nodes
               const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
               const lastMsg = currentMessages[currentMessages.length - 1];
               if (lastMsg?.role === 'assistant') {
@@ -241,9 +282,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
               if (event.citations) setCitations(event.citations);
             }
           } catch (e) {
-            // Just append as raw text if JSON parse fails (fallback)
-            // But ideally we should handle errors better
-            // accumulated += line;
+            // skip
           }
         }
       }

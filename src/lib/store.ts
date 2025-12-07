@@ -83,6 +83,11 @@ export interface CanvasState {
   setSelectedNodeId: (id: string | null) => void;
   updateNodeDimensions: (id: string, width: number, height?: number) => void;
   saveCanvas: (name?: string) => Promise<void>;
+  
+  // New State for Merge
+  mergingNodeId: string | null;
+  setMergingNodeId: (id: string | null) => void;
+  mergeNodes: (targetId: string) => void;
 }
 
 const NODE_WIDTH = 480;
@@ -125,9 +130,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   user: null,
   selectedNodeId: null,
   saveStatus: "idle",
+  mergingNodeId: null,
 
   setUser: (user) => set({ user }),
   setCanvasId: (id) => set({ canvasId: id }),
+  setMergingNodeId: (id) => set({ mergingNodeId: id }),
 
   onNodesChange: (changes) => {
     set({
@@ -242,11 +249,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
-    // Reduced distance: width of node + small padding (20px instead of 100px)
     const newX = sourceNode.position.x + NODE_WIDTH + 20; 
 
-    // Reduced vertical spacing
-    const VERTICAL_SPACING = NODE_HEIGHT + 20; // Reduced from + PADDING (100)
+    const VERTICAL_SPACING = NODE_HEIGHT + 20;
 
     for (let i = 0; i < count; i++) {
       const id = crypto.randomUUID();
@@ -288,7 +293,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
-    const newX = sourceNode.position.x + NODE_WIDTH + 20; // Reduced distance
+    const newX = sourceNode.position.x + NODE_WIDTH + 20;
 
     const VERTICAL_SPACING = NODE_HEIGHT + 20;
 
@@ -338,7 +343,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const id = crypto.randomUUID();
     const position = findEmptyPosition(
       nodes,
-      sourceNode.position.x + NODE_WIDTH + 20, // Reduced
+      sourceNode.position.x + NODE_WIDTH + 20,
       sourceNode.position.y
     );
 
@@ -391,7 +396,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       const offsetX =
         sourceHandlePosition === "right"
-          ? NODE_WIDTH + 20 // Reduced
+          ? NODE_WIDTH + 20
           : -(NODE_WIDTH + 20);
       position = findEmptyPosition(
         nodes,
@@ -429,14 +434,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const id = crypto.randomUUID();
     const nodePosition = findEmptyPosition(nodes, position.x, position.y);
 
-    // Optimistic UI: Read as base64 for immediate display while uploading
     const reader = new FileReader();
     const base64Preview = await new Promise<string>((resolve) => {
       reader.onload = () => resolve(reader.result as string);
       reader.readAsDataURL(file);
     });
 
-    // Create node immediately with local data
     const newNode: Node = {
       id,
       type: "file",
@@ -446,7 +449,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         label: file.name,
         fileType: file.type,
         fileSize: file.size,
-        fileData: base64Preview, // Temporary local preview
+        fileData: base64Preview,
         uploading: true,
       },
       dragHandle: ".drag-handle",
@@ -454,7 +457,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     set({ nodes: [...nodes, newNode] });
 
-    // Perform upload
     const formData = new FormData();
     formData.append("file", file);
 
@@ -467,7 +469,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       if (data.error) throw new Error(data.error);
 
-      // Update node with remote URL and xAI File ID
       set({
         nodes: get().nodes.map((n) =>
           n.id === id
@@ -475,8 +476,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                 ...n,
                 data: {
                   ...n.data,
-                  fileData: data.url, // Use signed URL
-                  xaiFileId: data.xaiFileId, // Store xAI File ID
+                  fileData: data.url,
+                  xaiFileId: data.xaiFileId,
                   uploading: false,
                   storagePath: data.path,
                 },
@@ -486,7 +487,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       });
     } catch (error) {
       console.error("Upload failed:", error);
-      // Mark as error
       set({
         nodes: get().nodes.map((n) =>
           n.id === id
@@ -506,7 +506,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { nodes, edges } = get();
     const id = crypto.randomUUID();
 
-    // Calculate position - find empty space
     const nodePosition = position
       ? findEmptyPosition(nodes, position.x, position.y)
       : findEmptyPosition(nodes);
@@ -563,7 +562,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!sourceNode) return "";
 
     const id = crypto.randomUUID();
-    // Offset position slightly
     const position = findEmptyPosition(
       nodes,
       sourceNode.position.x + 50,
@@ -575,7 +573,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       id,
       position,
       selected: false,
-      data: { ...sourceNode.data }, // Shallow copy of data
+      data: { ...sourceNode.data },
     };
 
     set({ nodes: [...nodes, newNode] });
@@ -602,7 +600,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     try {
       const payload: any = { nodes, edges };
       if (name) payload.name = name;
-      if (canvasId) payload.id = canvasId; // Only include ID if we have one
+      if (canvasId) payload.id = canvasId;
 
       const response = await fetch("/api/canvas", {
         method: "POST",
@@ -629,5 +627,76 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       console.error("Save failed:", error);
       set({ saveStatus: "error" });
     }
+  },
+
+  // Merge Implementation
+  mergeNodes: (targetId) => {
+    const { nodes, edges, mergingNodeId } = get();
+    if (!mergingNodeId || mergingNodeId === targetId) {
+        set({ mergingNodeId: null });
+        return;
+    }
+
+    const sourceNode = nodes.find(n => n.id === mergingNodeId);
+    const targetNode = nodes.find(n => n.id === targetId);
+
+    if (!sourceNode || !targetNode) return;
+
+    // Only merge text nodes for now
+    if (sourceNode.type !== 'text' || targetNode.type !== 'text') {
+        set({ mergingNodeId: null });
+        return;
+    }
+
+    // Calculate new position (midpoint + offset)
+    const newX = (sourceNode.position.x + targetNode.position.x) / 2;
+    const newY = Math.max(sourceNode.position.y, targetNode.position.y) + NODE_HEIGHT + 50;
+
+    const newId = crypto.randomUUID();
+    
+    const sourceMsgs = sourceNode.data.messages || [];
+    const targetMsgs = targetNode.data.messages || [];
+    
+    // Sort merged messages by timestamp
+    const combinedMessages = [...sourceMsgs, ...targetMsgs].sort((a, b) => 
+        (a.timestamp || 0) - (b.timestamp || 0)
+    );
+
+    // Create the new merged node
+    const newNode: Node = {
+      id: newId,
+      type: 'text',
+      position: { x: newX, y: newY },
+      width: 450,
+      data: {
+        messages: combinedMessages,
+        label: 'Merged Conversation'
+      },
+      dragHandle: '.drag-handle',
+    };
+
+    // Create edges from parents to new node
+    const edge1: Edge = {
+        id: `e${sourceNode.id}-${newId}`,
+        source: sourceNode.id,
+        target: newId,
+        type: 'bezier',
+        animated: true,
+    };
+    
+    const edge2: Edge = {
+        id: `e${targetNode.id}-${newId}`,
+        source: targetNode.id,
+        target: newId,
+        type: 'bezier',
+        animated: true,
+    };
+
+    set({
+        nodes: [...nodes, newNode],
+        edges: [...edges, edge1, edge2],
+        mergingNodeId: null, 
+        selectedNodeId: newId 
+    });
   },
 }));

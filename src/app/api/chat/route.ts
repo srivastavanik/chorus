@@ -13,12 +13,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { messages, model, webSearch, attachedFileIds } = await req.json();
+    const { messages, model, webSearch, attachedFileIds, imageUrls } = await req.json();
 
     if (attachedFileIds && attachedFileIds.length > 0) {
-      return handleAgenticResponse(messages, model, attachedFileIds);
+      return handleAgenticResponse(messages, model, attachedFileIds, imageUrls);
     } else {
-      return handleChatCompletions(messages, model, webSearch);
+      return handleChatCompletions(messages, model, webSearch, imageUrls);
     }
   } catch (error) {
     console.error('Chat API Error:', error);
@@ -30,17 +30,45 @@ export async function POST(req: Request) {
 }
 
 // Helper to process message content for vision/files
-function processMessages(messages: any[]) {
-  return messages.map((m: any) => {
-    if (typeof m.content !== 'string') {
-      return { role: m.role, content: m.content };
+function processMessages(messages: any[], imageUrls?: string[]) {
+  // Clone messages to avoid mutation
+  const processed = [...messages];
+  
+  // If we have images, attach them to the LAST user message
+  if (imageUrls && imageUrls.length > 0) {
+    const lastUserIndex = processed.map(m => m.role).lastIndexOf('user');
+    if (lastUserIndex !== -1) {
+      const lastMsg = processed[lastUserIndex];
+      const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+      
+      // Construct multipart content
+      const newContent: any[] = [];
+      
+      // Add images first (or last, doesn't matter much, but contextually usually images then question)
+      imageUrls.forEach(url => {
+        newContent.push({
+          type: 'image_url',
+          image_url: {
+            url: url,
+            detail: 'high' // Default to high detail
+          }
+        });
+      });
+      
+      // Add text
+      if (textContent) {
+        newContent.push({ type: 'text', text: textContent });
+      }
+      
+      processed[lastUserIndex] = { ...lastMsg, content: newContent };
     }
-    return { role: m.role, content: m.content };
-  });
+  }
+  
+  return processed;
 }
 
-async function handleChatCompletions(messages: any[], model: string, webSearch?: boolean) {
-  const processedMessages = processMessages(messages);
+async function handleChatCompletions(messages: any[], model: string, webSearch?: boolean, imageUrls?: string[]) {
+  const processedMessages = processMessages(messages, imageUrls);
 
   const body: any = {
     model: model || 'grok-4-fast',
@@ -71,80 +99,18 @@ async function handleChatCompletions(messages: any[], model: string, webSearch?:
     throw new Error(`API error: ${response.status}`);
   }
 
-  // Transform SSE stream to include metadata
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-
-  const transformStream = new TransformStream({
-    async transform(chunk, controller) {
-      const text = decoder.decode(chunk);
-      const lines = text.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-          try {
-            const data = JSON.parse(line.slice(6));
-            const delta = data.choices?.[0]?.delta;
-            const content = delta?.content;
-            
-            // Check multiple reasoning fields as API might vary
-            const reasoningContent = delta?.reasoning_content || delta?.reasoning;
-            const reasoningTokens = data.usage?.reasoning_tokens;
-            
-            // Citations usually come in the final chunk or separate event
-            const citations = data.citations;
-
-            if (reasoningContent) {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'reasoning',
-                content: reasoningContent,
-              }) + '\n'));
-            }
-
-            if (content || reasoningTokens) {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'content',
-                content: content || '',
-                reasoning_tokens: reasoningTokens || 0,
-              }) + '\n'));
-            }
-            
-            if (citations) {
-               controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'done',
-                citations: citations,
-              }) + '\n'));
-            }
-          } catch (e) {
-            // Skip invalid JSON
-          }
-        } else if (line === 'data: [DONE]') {
-          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
-        }
-      }
-    },
-  });
-
-  return new NextResponse(response.body?.pipeThrough(transformStream), {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
+  return streamResponse(response);
 }
 
-async function handleAgenticResponse(messages: any[], model: string, attachedFileIds: string[]) {
-  // Use /responses endpoint for agentic/file capabilities
+async function handleAgenticResponse(messages: any[], model: string, attachedFileIds: string[], imageUrls?: string[]) {
+  // Process images first if any
+  const processedMessages = processMessages(messages, imageUrls);
   
-  // Convert standard messages to "input" format if needed
-  // The curl example suggests "input" is an array of messages with role/content
-  // AND attachments on specific messages.
-  
-  const input = messages.map((m: any, index: number) => {
+  // Convert standard messages to "input" format for /responses
+  const input = processedMessages.map((m: any, index: number) => {
     const msg: any = { role: m.role, content: m.content };
-    // Attach files to the LAST message (which should be user)
-    if (index === messages.length - 1 && m.role === 'user') {
+    // Attach files to the LAST user message
+    if (index === processedMessages.length - 1 && m.role === 'user' && attachedFileIds.length > 0) {
         msg.attachments = attachedFileIds.map(id => ({
             file_id: id,
             tools: [{ type: "file_search" }]
@@ -175,7 +141,11 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
     throw new Error(`Agentic API error: ${response.status}`);
   }
 
-  // Transform SSE stream
+  return streamResponse(response);
+}
+
+// Shared stream handler
+function streamResponse(response: Response) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
@@ -189,40 +159,28 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
           try {
             const data = JSON.parse(line.slice(6));
             
-            // The /responses stream format might differ. 
-            // Typically: data.output[0].content[0].text (delta?) or similar.
-            // Or tool_calls.
-            
-            // Let's try to handle generic delta structure if it matches standard, 
-            // otherwise look for specific fields.
-            // Assuming similar structure to ChatCompletion chunk but maybe "output" instead of "choices"
-            
-            // Heuristic parser:
-            // 1. Content delta
             let content = '';
             let reasoningContent = '';
             
-            // Check choices/delta first (if compatible)
+            // Handle Chat Completion format
             if (data.choices?.[0]?.delta?.content) {
                 content = data.choices[0].delta.content;
-            } else if (data.output?.[0]?.content) {
-                // Might be full content or delta?
-                // If streaming, likely delta.
+            }
+            if (data.choices?.[0]?.delta?.reasoning_content) {
+                reasoningContent = data.choices[0].delta.reasoning_content;
+            }
+
+            // Handle Agentic /responses format
+            if (data.output?.[0]?.content) {
                 const contentObj = data.output[0].content;
                 if (Array.isArray(contentObj)) {
-                    // List of content parts?
-                    // e.g. [{type: 'text', text: '...'}]
                     content = contentObj.map((c: any) => c.text || '').join('');
                 } else if (typeof contentObj === 'string') {
                     content = contentObj;
                 }
             }
-
-            // Check for reasoning
-            if (data.choices?.[0]?.delta?.reasoning_content) {
-                reasoningContent = data.choices[0].delta.reasoning_content;
-            }
-
+            // Agentic reasoning? (Structure varies, sometimes in content with type)
+            
             if (reasoningContent) {
               controller.enqueue(encoder.encode(JSON.stringify({
                 type: 'reasoning',
@@ -237,8 +195,13 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
               }) + '\n'));
             }
             
-            // If status/tool calls
-            // ...
+            // Pass citations if available
+            if (data.citations) {
+               controller.enqueue(encoder.encode(JSON.stringify({
+                type: 'done',
+                citations: data.citations,
+              }) + '\n'));
+            }
 
           } catch (e) {
             // Skip
