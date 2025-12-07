@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
+import { getUserByToken } from '@/lib/auth-utils';
 
 const XAI_API_KEY = process.env.XAI_API_KEY!;
 const XAI_BASE_URL = 'https://api.x.ai/v1';
 
 export async function POST(req: Request) {
   try {
+    const token = req.headers.get('cookie')?.split('auth_token=')[1]?.split(';')[0];
+    const user = token ? await getUserByToken(token) : null;
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { messages, model, webSearch } = await req.json();
 
     return handleChatCompletions(messages, model, webSearch);
@@ -34,6 +42,7 @@ async function handleChatCompletions(messages: any[], model: string, webSearch?:
     model: model || 'grok-4-fast',
     messages: processedMessages,
     stream: true,
+    temperature: 0.7,
   };
 
   if (webSearch) {
