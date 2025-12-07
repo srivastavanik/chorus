@@ -7,6 +7,7 @@ import {
   Controls, 
   MiniMap, 
   BackgroundVariant, 
+  ConnectionLineType,
   useReactFlow, 
   ReactFlowProvider, 
   Node,
@@ -204,7 +205,7 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
         proOptions={{ hideAttribution: true }}
         fitView={false}
         connectionLineStyle={{ stroke: '#666', strokeWidth: 2 }}
-        connectionLineType="bezier"
+        connectionLineType={ConnectionLineType.Bezier}
       >
         <Background
           color="#333"
