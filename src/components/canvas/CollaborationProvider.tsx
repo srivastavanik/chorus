@@ -27,6 +27,8 @@ interface CollaborationContextType {
   forceSyncState: () => void;
   markLocalChange: () => void;
   getNodeBorderColor: (nodeId: string) => string | null;
+  markNodePending: (nodeId: string) => void;
+  markEdgePending: (edgeId: string) => void;
 }
 
 const CollaborationContext = createContext<CollaborationContextType | null>(
@@ -64,6 +66,8 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
     setActiveNode,
     forceSyncState,
     markLocalChange,
+    markNodePending,
+    markEdgePending,
   } = useCollaboration({
     canvasId,
     userId: user?.id || null,
@@ -104,6 +108,8 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
         forceSyncState,
         markLocalChange,
         getNodeBorderColor,
+        markNodePending,
+        markEdgePending,
       }}
     >
       {children}
@@ -126,6 +132,8 @@ export function useCollaborationContext() {
       forceSyncState: () => {},
       markLocalChange: () => {},
       getNodeBorderColor: () => null,
+      markNodePending: () => {},
+      markEdgePending: () => {},
     };
   }
   return context;

@@ -94,6 +94,8 @@ function CanvasContentInner({
     myColor,
     setMyColor,
     markLocalChange,
+    markNodePending,
+    markEdgePending,
   } = useCollaborationContext();
 
   // Get canvas ID for auto-versioning
@@ -225,10 +227,12 @@ function CanvasContentInner({
         (e) => !edgesBefore.some((eb) => eb.id === e.id)
       );
       newEdges.forEach((edge) => {
+        // Mark as pending to protect from sync overwrites
+        markEdgePending(edge.id);
         broadcast("edge:create", { edge });
       });
     },
-    [onEdgesChange, broadcast]
+    [onEdgesChange, broadcast, markEdgePending]
   );
 
   // Wrap onConnect to broadcast edge connections
@@ -243,11 +247,13 @@ function CanvasContentInner({
           (e) => !edgesBefore.some((eb) => eb.id === e.id)
         );
         if (newEdge) {
+          // Mark as pending to protect from sync overwrites
+          markEdgePending(newEdge.id);
           broadcast("edge:create", { edge: newEdge });
         }
       }, 0);
     },
-    [onConnect, broadcast]
+    [onConnect, broadcast, markEdgePending]
   );
 
   const onPaneContextMenu = useCallback(
@@ -277,6 +283,8 @@ function CanvasContentInner({
         (n) => !nodesBefore.some((nb) => nb.id === n.id)
       );
       if (newNode) {
+        // Mark as pending to protect from sync overwrites
+        markNodePending(newNode.id);
         broadcast("node:create", { node: newNode });
       }
     }
@@ -341,6 +349,11 @@ function CanvasContentInner({
             (e) => !edgesBefore.some((eb) => eb.id === e.id)
           );
           if (newNode) {
+            // Mark as pending to protect from sync overwrites
+            markNodePending(newNode.id);
+            if (newEdge) {
+              markEdgePending(newEdge.id);
+            }
             broadcast("node:create", { node: newNode, edge: newEdge });
           }
         }, 0);
@@ -348,7 +361,13 @@ function CanvasContentInner({
 
       connectingNodeRef.current = null;
     },
-    [screenToFlowPosition, addConnectedNode, broadcast]
+    [
+      screenToFlowPosition,
+      addConnectedNode,
+      broadcast,
+      markNodePending,
+      markEdgePending,
+    ]
   );
 
   // File drag and drop handlers
@@ -388,10 +407,12 @@ function CanvasContentInner({
         (n) => !nodesBefore.some((nb) => nb.id === n.id)
       );
       newNodes.forEach((node) => {
+        // Mark as pending to protect from sync overwrites
+        markNodePending(node.id);
         broadcast("node:create", { node });
       });
     },
-    [screenToFlowPosition, addFileNode, broadcast]
+    [screenToFlowPosition, addFileNode, broadcast, markNodePending]
   );
 
   // Mouse move for cursor tracking
