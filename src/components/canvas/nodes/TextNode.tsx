@@ -282,7 +282,20 @@ export function TextNode({ id, data, selected }: NodeProps) {
 
     // Attempt auto-titling first
     if (submitPrompt.trim()) {
-      scheduleAutoTitle(submitPrompt);
+      const canvasName = useCanvasStore.getState().canvasName;
+      // If canvas name is untitled or null, set it immediately to the first message
+      if (!canvasName || canvasName === "Untitled Canvas") {
+        const newTitle = submitPrompt.trim().substring(0, 50);
+        useCanvasStore.getState().setCanvasName(newTitle);
+        // Broadcast title change
+        broadcast("title:update", { title: newTitle });
+        window.dispatchEvent(new Event("canvas-list-updated"));
+        // Still schedule auto-title for a better generated name later?
+        // Maybe skip auto-title if we just set it? 
+        // Let's skip scheduleAutoTitle if we set it manually to avoid overwrite flicker
+      } else {
+        scheduleAutoTitle(submitPrompt);
+      }
     }
 
     setIsLoading(true);
