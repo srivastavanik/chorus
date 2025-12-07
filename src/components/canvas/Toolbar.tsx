@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Save, ZoomIn, ZoomOut, Share2, Plus } from 'lucide-react';
+import { ZoomIn, ZoomOut, Share2, Plus } from 'lucide-react';
 import { useReactFlow, useViewport } from '@xyflow/react';
 import { useCanvasStore } from '@/lib/store';
 import { useClickOutside } from '@/hooks/useClickOutside';
@@ -17,7 +17,6 @@ export function Toolbar() {
   const zoomMenuRef = useClickOutside<HTMLDivElement>(() => setIsZoomMenuOpen(false));
   
   const addNode = useCanvasStore((state) => state.addNode);
-  const saveCanvas = useCanvasStore((state) => state.saveCanvas);
   const setSelectedNodeId = useCanvasStore((state) => state.setSelectedNodeId);
 
   const handleAddNode = () => {
@@ -88,13 +87,6 @@ export function Toolbar() {
       </Button>
       
       <div className="flex items-center gap-1 pl-2 border-l border-gray-700">
-        <button 
-          onClick={() => saveCanvas('Untitled Canvas')}
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-          title="Save canvas"
-        >
-          <Save size={18} />
-        </button>
         <button 
           className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
           title="Share canvas"

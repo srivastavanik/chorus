@@ -40,6 +40,7 @@ export interface CanvasState {
   edges: Edge[];
   user: any | null;
   selectedNodeId: string | null;
+  saveStatus: "idle" | "saving" | "saved" | "error";
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
@@ -123,6 +124,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   edges: [],
   user: null,
   selectedNodeId: null,
+  saveStatus: "idle",
 
   setUser: (user) => set({ user }),
   setCanvasId: (id) => set({ canvasId: id }),
@@ -208,10 +210,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         if (node.id !== id) return node;
         const messages = [...(node.data.messages || [])];
         if (messages[messageIndex]) {
-          messages[messageIndex] = { 
-            ...messages[messageIndex], 
+          messages[messageIndex] = {
+            ...messages[messageIndex],
             content,
-            ...(reasoning !== undefined && { reasoning }) 
+            ...(reasoning !== undefined && { reasoning }),
           };
           messages.splice(messageIndex + 1);
         }
@@ -476,7 +478,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({
         nodes: get().nodes.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, uploading: false, error: "Upload failed" } }
+            ? {
+                ...n,
+                data: { ...n.data, uploading: false, error: "Upload failed" },
+              }
             : n
         ),
       });
@@ -579,6 +584,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   saveCanvas: async (name) => {
     const { nodes, edges, canvasId } = get();
+    set({ saveStatus: "saving" });
     try {
       const payload: any = { nodes, edges };
       if (name) payload.name = name;
@@ -589,15 +595,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      
+
       if (!response.ok) throw new Error("Failed to save");
-      
+
       const data = await response.json();
       if (data.id && data.id !== canvasId) {
-        set({ canvasId: data.id }); // Update ID to prevent duplicate creation
+        set({ canvasId: data.id, saveStatus: "saved" });
+      } else {
+        set({ saveStatus: "saved" });
       }
+
+      // Reset to idle after 2 seconds
+      setTimeout(() => {
+        if (get().saveStatus === "saved") {
+          set({ saveStatus: "idle" });
+        }
+      }, 2000);
     } catch (error) {
       console.error("Save failed:", error);
+      set({ saveStatus: "error" });
     }
   },
 }));

@@ -23,6 +23,7 @@ import { BezierEdge } from './edges/BezierEdge';
 import { Toolbar } from './Toolbar';
 import { AddBlockMenu } from './AddBlockMenu';
 import { Sidebar } from './Sidebar';
+import { AutosaveStatus } from './AutosaveStatus';
 
 const nodeTypes = {
   text: TextNode,
@@ -236,6 +237,7 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
         <Toolbar />
       </ReactFlow>
       
+      <AutosaveStatus />
       <Sidebar onCanvasSelect={onCanvasSelect} />
       
       {menu && (
