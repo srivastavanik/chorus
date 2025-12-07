@@ -606,7 +606,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       nodes: get().nodes.map((node) =>
         node.id === id
-          ? { ...node, width, height, style: { ...node.style, width, height } }
+          ? { 
+              ...node, 
+              width, 
+              height, 
+              style: { ...node.style, width, height },
+              data: { ...node.data, width, height }
+            }
           : node
       ),
     });

@@ -483,3 +483,129 @@ select option {
   background: #0D0D0D;
   color: white;
 }
+
+/* ========== PROSE / MARKDOWN STYLING ========== */
+
+.prose {
+  --tw-prose-body: #e4e4e7;
+  --tw-prose-headings: #ffffff;
+  --tw-prose-links: #6366f1;
+  --tw-prose-bold: #ffffff;
+  --tw-prose-counters: #a1a1aa;
+  --tw-prose-bullets: #71717a;
+  --tw-prose-hr: #3f3f46;
+  --tw-prose-quotes: #e4e4e7;
+  --tw-prose-quote-borders: #3f3f46;
+  --tw-prose-captions: #a1a1aa;
+  --tw-prose-code: #f4f4f5;
+  --tw-prose-pre-code: #e4e4e7;
+  --tw-prose-pre-bg: #18181b;
+  --tw-prose-th-borders: #3f3f46;
+  --tw-prose-td-borders: #27272a;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  color: var(--tw-prose-headings);
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1 { font-size: 1.5em; }
+.prose h2 { font-size: 1.25em; }
+.prose h3 { font-size: 1.125em; }
+
+.prose p {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  line-height: 1.7;
+}
+
+.prose strong {
+  color: var(--tw-prose-bold);
+  font-weight: 600;
+}
+
+.prose code {
+  color: var(--tw-prose-code);
+  background: rgba(255,255,255,0.1);
+  padding: 0.125em 0.375em;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: var(--font-mono);
+}
+
+.prose pre {
+  background: var(--tw-prose-pre-bg);
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8125em;
+}
+
+.prose ul, .prose ol {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin-top: 0.375em;
+  margin-bottom: 0.375em;
+}
+
+.prose ul > li {
+  list-style-type: disc;
+}
+
+.prose ol > li {
+  list-style-type: decimal;
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--tw-prose-quote-borders);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: var(--tw-prose-quotes);
+  font-style: italic;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.875em;
+}
+
+.prose th, .prose td {
+  border: 1px solid var(--tw-prose-td-borders);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.prose th {
+  background: rgba(255,255,255,0.05);
+  font-weight: 600;
+}
+
+.prose a {
+  color: var(--tw-prose-links);
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  opacity: 0.8;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--tw-prose-hr);
+  margin: 1.5em 0;
+}
