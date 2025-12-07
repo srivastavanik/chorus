@@ -30,7 +30,7 @@ export function LandingPage() {
       {/* Navbar */}
       <nav className="absolute top-0 left-0 right-0 z-20 px-6 py-6 md:px-12 flex justify-between items-center max-w-[1600px] mx-auto w-full">
         <div className="flex items-center gap-8">
-          <div className="w-6 h-6 text-white font-bold text-2xl tracking-tighter">
+          <div className="w-6 h-6 text-white font-bold text-2xl tracking-tighter select-none">
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
               <path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2-1-10-5-10 5 10 5 8-4zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>

@@ -63,8 +63,15 @@ export function Sidebar() {
       <div className={`flex flex-col h-full overflow-hidden ${!isOpen && 'hidden'}`}>
         {/* Header with Logo */}
         <div className="p-4 border-b border-gray-800 flex items-center justify-center">
-          <div className="w-24 h-24 relative">
-            <Image src="/logo.png" alt="Logo" fill sizes="96px" className="object-contain" />
+          <div className="w-24 h-24 relative select-none">
+            <Image 
+              src="/logo.png" 
+              alt="Logo" 
+              fill 
+              sizes="96px" 
+              className="object-contain" 
+              draggable={false}
+            />
           </div>
         </div>
 
