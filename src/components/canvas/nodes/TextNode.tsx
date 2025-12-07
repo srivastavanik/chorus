@@ -127,13 +127,22 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const nodeWidth = nodeLayout.width ?? 450;
   const nodeHeight = nodeLayout.height ?? "auto";
 
+  // Collaboration - get border color and broadcast
+  const { getNodeBorderColor, broadcast } = useCollaborationContext();
+  const collaboratorColor = getNodeBorderColor(id);
+
   const handleExpand = () => {
-    setIsExpanded(!isExpanded);
-    updateNodeDimensions(
-      id,
-      isExpanded ? 450 : 800,
-      isExpanded ? undefined : 600
-    );
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    const newWidth = newExpanded ? 800 : 450;
+    const newHeight = newExpanded ? 600 : undefined;
+    updateNodeDimensions(id, newWidth, newHeight);
+    
+    // Broadcast dimension change to collaborators
+    broadcast('node:update', {
+      nodeId: id,
+      updates: { width: newWidth, height: newHeight }
+    });
   };
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   const addMessageToNode = useCanvasStore((state) => state.addMessageToNode);
@@ -560,10 +569,6 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const modelSupportsReasoning = currentModelConfig?.supportsReasoning ?? false;
   const isReasoningSectionVisible =
     modelSupportsReasoning && (reasoning || isLoading);
-
-  // Collaboration - get border color if another user is active on this node
-  const { getNodeBorderColor, broadcast } = useCollaborationContext();
-  const collaboratorColor = getNodeBorderColor(id);
 
   return (
     <div

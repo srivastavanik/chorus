@@ -13,8 +13,8 @@ export async function POST(req: Request) {
 
     const { id, name, nodes, edges } = await req.json();
     
+    // Build base update data (without user_id to preserve ownership)
     const upsertData: any = {
-      user_id: user.id,
       nodes: nodes || [], 
       edges: edges || [],
       updated_at: new Date().toISOString()
@@ -22,28 +22,71 @@ export async function POST(req: Request) {
 
     if (name) {
       upsertData.name = name;
-    } else if (!id) {
-      // Only default to 'Untitled Canvas' if creating a NEW canvas (no ID) and no name provided
-      upsertData.name = 'Untitled Canvas';
     }
 
-    if (id) {
-      upsertData.id = id;
-    }
-
-    // Upsert canvas
-    const { data, error } = await supabase
-      .from('canvases')
-      .upsert(upsertData, { onConflict: 'id' })
-      .select()
-      .single();
+    // Handle NEW canvas creation vs UPDATE of existing canvas
+    if (!id) {
+      // Creating a NEW canvas - set user_id and default name
+      upsertData.user_id = user.id;
+      if (!name) {
+        upsertData.name = 'Untitled Canvas';
+      }
       
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const { data, error } = await supabase
+        .from('canvases')
+        .insert(upsertData)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Supabase insert error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      
+      return NextResponse.json(data);
+    } else {
+      // Updating an EXISTING canvas - verify access rights first
+      const { data: existing } = await supabase
+        .from('canvases')
+        .select('user_id')
+        .eq('id', id)
+        .single();
+      
+      if (!existing) {
+        return NextResponse.json({ error: 'Canvas not found' }, { status: 404 });
+      }
+      
+      // Check if user is owner
+      const isOwner = existing.user_id === user.id;
+      
+      if (!isOwner) {
+        // Check if user has edit permission via share
+        const { data: share } = await supabase
+          .from('canvas_shares')
+          .select('permission')
+          .eq('canvas_id', id)
+          .single();
+        
+        if (!share || share.permission !== 'edit') {
+          return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+        }
+      }
+      
+      // Update canvas (without changing user_id)
+      const { data, error } = await supabase
+        .from('canvases')
+        .update(upsertData)
+        .eq('id', id)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Supabase update error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      
+      return NextResponse.json(data);
     }
-    
-    return NextResponse.json(data);
   } catch (e) {
     console.error('Canvas save error:', e);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

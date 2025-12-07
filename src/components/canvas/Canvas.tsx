@@ -176,6 +176,19 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
     [onEdgesChange, broadcast]
   );
 
+  // Wrap onConnect to broadcast edge connections
+  const handleConnect = useCallback(
+    (connection: any) => {
+      onConnect(connection);
+      // Broadcast after state update
+      setTimeout(() => {
+        const store = useCanvasStore.getState();
+        broadcast("edge:create", { edges: store.edges });
+      }, 0);
+    },
+    [onConnect, broadcast]
+  );
+
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
       event.preventDefault();
@@ -334,7 +347,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
         edges={edges}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
-        onConnect={onConnect}
+        onConnect={handleConnect}
         onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
         onNodeClick={onNodeClick}

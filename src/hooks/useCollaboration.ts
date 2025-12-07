@@ -37,7 +37,7 @@ interface BroadcastPayload {
   data: any;
 }
 
-const CURSOR_THROTTLE_MS = 50; // Throttle cursor updates
+const CURSOR_THROTTLE_MS = 75; // Throttle cursor updates (balanced for 5+ users)
 const SYNC_INTERVAL_MS = 10000; // Sync canvas state every 10 seconds
 
 export function useCollaboration({
