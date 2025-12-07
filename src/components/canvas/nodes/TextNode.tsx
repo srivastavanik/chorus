@@ -120,10 +120,14 @@ export function TextNode({ id, data, selected }: NodeProps) {
     
     try {
       const { nodes, edges } = useCanvasStore.getState();
+      const currentNode = nodes.find(n => n.id === id);
+      const currentMessages = currentNode?.data.messages || [];
+      
       const context = getAncestorContext(id, nodes, edges);
       
-      const nodeMessages = messages.map(m => ({ role: m.role, content: m.content }));
-      const allMessages = [...context, ...nodeMessages, { role: 'user', content: submitPrompt }];
+      const nodeMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
+      // currentMessages already includes the new user message we just added
+      const allMessages = [...context, ...nodeMessages];
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -185,8 +189,33 @@ export function TextNode({ id, data, selected }: NodeProps) {
     } finally {
       setIsLoading(false);
       setStatus(null);
-      setPrompt('');
+      if (!overridePrompt) {
+        setPrompt('');
+      }
     }
+  };
+
+  const handleRegenerate = () => {
+    const { nodes } = useCanvasStore.getState();
+    const currentNode = nodes.find(n => n.id === id);
+    const currentMessages = currentNode?.data.messages || [];
+
+    if (currentMessages.length === 0) return;
+
+    // Find last user message
+    const lastUserIndex = [...currentMessages].reverse().findIndex(m => m.role === 'user');
+    if (lastUserIndex === -1) return;
+    
+    // The index from reverse needs to be converted to actual index
+    const realIndex = currentMessages.length - 1 - lastUserIndex;
+    const userContent = currentMessages[realIndex].content;
+    
+    // Truncate store to BEFORE this message
+    const newMessages = currentMessages.slice(0, realIndex);
+    updateNodeData(id, { messages: newMessages });
+    
+    // Submit
+    handleSubmit(userContent);
   };
 
   const handleEditMessage = (index: number) => {
@@ -272,6 +301,15 @@ export function TextNode({ id, data, selected }: NodeProps) {
             <Globe size={14} />
           </button>
           
+          <button 
+            onClick={handleRegenerate}
+            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
+            title="Regenerate response"
+            disabled={isLoading || messages.length === 0}
+          >
+            <RotateCcw size={14} />
+          </button>
+
           <div className="relative nodrag">
             <button 
               ref={splitBtnRef}
