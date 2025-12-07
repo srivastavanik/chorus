@@ -14,6 +14,10 @@ import {
 
 export type NodeType = "text" | "image" | "postit" | "file";
 
+export type CanvasNode = Node & {
+  createdAt?: number;
+};
+
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -39,7 +43,7 @@ export interface CanvasState {
   canvasName: string | null;
   nodes: Node[];
   edges: Edge[];
-  stableCanvasState: { nodes: Node[]; edges: Edge[] } | null;
+  stableCanvasState: { nodes: CanvasNode[]; edges: Edge[] } | null;
   user: any | null;
   selectedNodeId: string | null;
   saveStatus: "idle" | "saving" | "saved" | "error";
@@ -143,7 +147,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setUser: (user) => set({ user }),
   setCanvasId: (id) => set({ canvasId: id }),
   setCanvasName: (name) => set({ canvasName: name }),
-  setStableCanvasState: (snapshot: { nodes: Node[]; edges: Edge[] } | null) =>
+  setStableCanvasState: (snapshot: { nodes: CanvasNode[]; edges: Edge[] } | null) =>
     set({ stableCanvasState: snapshot }),
   setMergingNodeId: (id) => set({ mergingNodeId: id }),
 
