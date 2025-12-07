@@ -6,8 +6,9 @@ import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { 
-  Play, Loader2, Globe, Paperclip, MoreHorizontal, ChevronDown, ChevronUp, 
-  Sparkles, Search, Edit3, GitBranch, Check, X, User, Bot, RotateCcw
+  Play, Loader2, Globe, MoreHorizontal, ChevronDown, ChevronUp, 
+  Edit3, GitBranch, Check, X, RotateCcw, Sparkles, ThumbsUp, ThumbsDown,
+  RefreshCw, Copy
 } from 'lucide-react';
 import { useCanvasStore, ChatMessage } from '@/lib/store';
 import { getAncestorContext } from '@/lib/context';
@@ -29,28 +30,63 @@ const MODELS = [
   { id: 'grok-3-mini', name: 'Grok 3 Mini', description: 'Lightweight' },
 ];
 
-export function TextNode({ id, data }: NodeProps) {
+// Extract numbered/bulleted items from text
+function extractListItems(text: string): string[] {
+  const lines = text.split('\n');
+  const items: string[] = [];
+  
+  for (const line of lines) {
+    // Match numbered lists: "1.", "1)", "1:"
+    const numberedMatch = line.match(/^\s*(\d+)[\.\)\:]\s*(.+)/);
+    // Match bulleted lists: "-", "*", "•"
+    const bulletMatch = line.match(/^\s*[\-\*\•]\s*(.+)/);
+    
+    if (numberedMatch && numberedMatch[2].trim()) {
+      items.push(numberedMatch[2].trim());
+    } else if (bulletMatch && bulletMatch[1].trim()) {
+      items.push(bulletMatch[1].trim());
+    }
+  }
+  
+  return items;
+}
+
+export function TextNode({ id, data, selected }: NodeProps) {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [model, setModel] = useState('grok-4-fast');
   const [reasoning, setReasoning] = useState('');
-  const [showReasoning, setShowReasoning] = useState(true);
+  const [showReasoning, setShowReasoning] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [citations, setCitations] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showSplitMenu, setShowSplitMenu] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
+  const [detectedItems, setDetectedItems] = useState<string[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const addMessageToNode = useCanvasStore((state) => state.addMessageToNode);
   const updateMessageInNode = useCanvasStore((state) => state.updateMessageInNode);
+  const splitNodeWithContent = useCanvasStore((state) => state.splitNodeWithContent);
   const splitNode = useCanvasStore((state) => state.splitNode);
+  const rateMessage = useCanvasStore((state) => state.rateMessage);
+  const reimagineNode = useCanvasStore((state) => state.reimagineNode);
   
   const messages: ChatMessage[] = data.messages || [];
-  const lastAssistantMessage = messages.filter(m => m.role === 'assistant').pop();
+
+  // Detect list items in the last assistant message
+  useEffect(() => {
+    const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
+    if (lastAssistantMsg) {
+      const items = extractListItems(lastAssistantMsg.content);
+      setDetectedItems(items);
+    } else {
+      setDetectedItems([]);
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (contentRef.current && isLoading) {
@@ -67,14 +103,12 @@ export function TextNode({ id, data }: NodeProps) {
     setStatus(null);
     setCitations([]);
     
-    // Add user message
     addMessageToNode(id, { role: 'user', content: submitPrompt });
     
     try {
       const { nodes, edges } = useCanvasStore.getState();
       const context = getAncestorContext(id, nodes, edges);
       
-      // Build messages from node history
       const nodeMessages = messages.map(m => ({ role: m.role, content: m.content }));
       const allMessages = [...context, ...nodeMessages, { role: 'user', content: submitPrompt }];
 
@@ -105,7 +139,6 @@ export function TextNode({ id, data }: NodeProps) {
             
             if (event.type === 'content' && event.content) {
               accumulated += event.content;
-              // Update the last assistant message or add new one
               const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
               const lastMsg = currentMessages[currentMessages.length - 1];
               if (lastMsg?.role === 'assistant') {
@@ -159,7 +192,6 @@ export function TextNode({ id, data }: NodeProps) {
   const handleRegenerateFrom = (index: number) => {
     const userMessage = messages[index];
     if (userMessage.role === 'user') {
-      // Remove messages after this point and regenerate
       updateMessageInNode(id, index, userMessage.content);
       handleSubmit(userMessage.content);
     }
@@ -170,21 +202,36 @@ export function TextNode({ id, data }: NodeProps) {
     setShowSplitMenu(false);
   };
 
+  // Split into nodes with the detected content items
+  const handleSmartSplit = () => {
+    if (detectedItems.length > 0) {
+      splitNodeWithContent(id, detectedItems);
+    }
+    setShowSplitMenu(false);
+  };
+
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-xl w-[450px] flex flex-col shadow-lg transition-all duration-200 hover:shadow-xl hover:border-gray-600 group">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-gray-900/50 rounded-t-xl backdrop-blur-sm">
-        <div className="flex items-center gap-2 relative">
+    <div 
+      className={`
+        bg-[#1a1a1a] border rounded-xl w-[450px] flex flex-col shadow-lg
+        ${isLoading ? 'border-gray-500' : ''}
+        ${selected ? 'border-white' : 'border-gray-700'}
+      `}
+    >
+      {/* Header - This is the drag handle */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-move drag-handle">
+        <div className="flex items-center gap-2 relative nopan nodrag">
           <button 
             onClick={() => setShowModelMenu(!showModelMenu)}
             className="flex items-center gap-1 text-xs text-gray-400 font-medium hover:text-white transition-colors"
+            title="Select model"
           >
             {MODELS.find(m => m.id === model)?.name || model}
             <ChevronDown size={12} />
           </button>
           
           {showModelMenu && (
-            <div className="absolute top-full left-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[200px] py-1">
+            <div className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] py-1">
               {MODELS.map((m) => (
                 <button
                   key={m.id}
@@ -199,11 +246,11 @@ export function TextNode({ id, data }: NodeProps) {
           )}
         </div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 nopan nodrag">
           <button 
             onClick={() => setWebSearch(!webSearch)}
-            className={`p-1.5 rounded-md transition-all duration-200 ${webSearch ? 'text-blue-400 bg-blue-400/10' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
-            title="Web Search"
+            className={`p-1.5 rounded-md transition-all duration-200 ${webSearch ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
+            title={webSearch ? 'Web search enabled' : 'Enable web search'}
           >
             <Globe size={14} />
           </button>
@@ -212,28 +259,44 @@ export function TextNode({ id, data }: NodeProps) {
             <button 
               onClick={() => setShowSplitMenu(!showSplitMenu)}
               className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
-              title="Branch/Split"
+              title="Branch into multiple nodes"
             >
               <GitBranch size={14} />
             </button>
             
             {showSplitMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[140px] py-1">
-                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Split into...</div>
+              <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[180px] py-1 nopan nodrag">
+                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800">Branch options</div>
+                
+                {/* Smart split option if items detected */}
+                {detectedItems.length > 1 && (
+                  <button
+                    onClick={handleSmartSplit}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-800 transition-colors flex items-center gap-2 border-b border-gray-800"
+                  >
+                    <Sparkles size={14} className="text-yellow-500" />
+                    Split into {detectedItems.length} items
+                  </button>
+                )}
+                
+                <div className="px-3 py-1.5 text-xs text-gray-500">Manual split</div>
                 {[2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
                     onClick={() => handleSplit(n)}
                     className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
                   >
-                    {n} branches
+                    {n} empty branches
                   </button>
                 ))}
               </div>
             )}
           </div>
           
-          <button className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors">
+          <button 
+            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
+            title="More options"
+          >
             <MoreHorizontal size={14} />
           </button>
         </div>
@@ -241,38 +304,18 @@ export function TextNode({ id, data }: NodeProps) {
 
       {/* Status Indicator */}
       {(isLoading || status) && (
-        <div className="px-4 py-2 border-b border-gray-800 bg-gray-950/50 flex items-center gap-2">
+        <div className="px-4 py-2 border-b border-gray-700 bg-[#141414] flex items-center gap-2">
           {status ? (
-            <>
-              <Search size={12} className="text-blue-400 animate-bounce" />
-              <span className="text-xs text-blue-400">{status}</span>
-            </>
+            <span className="text-xs text-gray-400">{status}</span>
           ) : (
             <>
-              <Sparkles size={12} className="text-purple-400 animate-spin" />
-              <span className="text-xs text-purple-400">Thinking...</span>
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+              </div>
+              <span className="text-xs text-gray-400">Thinking...</span>
             </>
-          )}
-        </div>
-      )}
-
-      {/* Reasoning Section */}
-      {reasoning && (
-        <div className="border-b border-gray-800 bg-gray-950/30">
-          <button 
-            onClick={() => setShowReasoning(!showReasoning)}
-            className="w-full px-4 py-2 flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Sparkles size={12} className="text-purple-400" />
-              Reasoning
-            </span>
-            {showReasoning ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-          {showReasoning && (
-            <div className="px-4 pb-3 text-xs text-gray-500 leading-relaxed max-h-32 overflow-y-auto">
-              {reasoning}
-            </div>
           )}
         </div>
       )}
@@ -280,7 +323,7 @@ export function TextNode({ id, data }: NodeProps) {
       {/* Chat History */}
       <div 
         ref={contentRef}
-        className="flex-1 min-h-[120px] max-h-[400px] overflow-y-auto"
+        className="flex-1 min-h-[80px] max-h-[300px] overflow-y-auto nopan nodrag nowheel"
       >
         {messages.length === 0 ? (
           <div className="p-4 text-gray-600 italic text-sm">Ready to chat...</div>
@@ -289,13 +332,13 @@ export function TextNode({ id, data }: NodeProps) {
             {messages.map((msg, index) => (
               <div 
                 key={index} 
-                className={`p-3 ${msg.role === 'user' ? 'bg-gray-950/30' : 'bg-transparent'} group/msg`}
+                className={`p-3 ${msg.role === 'user' ? 'bg-[#141414]' : 'bg-transparent'} group/msg`}
               >
                 <div className="flex items-start gap-2">
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${
-                    msg.role === 'user' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+                  <div className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+                    msg.role === 'user' ? 'bg-gray-700 text-gray-300' : 'bg-gray-800 text-gray-400'
                   }`}>
-                    {msg.role === 'user' ? <User size={12} /> : <Bot size={12} />}
+                    {msg.role === 'user' ? 'U' : 'G'}
                   </div>
                   
                   <div className="flex-1 min-w-0">
@@ -304,14 +347,23 @@ export function TextNode({ id, data }: NodeProps) {
                         <textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
-                          className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-sm text-white resize-none"
+                          className="w-full bg-[#252525] border border-gray-700 rounded-md p-2 text-sm text-white resize-none focus:border-gray-500 focus:outline-none"
                           rows={3}
+                          autoFocus
                         />
                         <div className="flex gap-1">
-                          <button onClick={handleSaveEdit} className="p-1 text-green-400 hover:bg-green-400/10 rounded">
+                          <button 
+                            onClick={handleSaveEdit} 
+                            className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                            title="Save edit"
+                          >
                             <Check size={14} />
                           </button>
-                          <button onClick={() => setEditingIndex(null)} className="p-1 text-red-400 hover:bg-red-400/10 rounded">
+                          <button 
+                            onClick={() => setEditingIndex(null)} 
+                            className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                            title="Cancel edit"
+                          >
                             <X size={14} />
                           </button>
                         </div>
@@ -322,12 +374,11 @@ export function TextNode({ id, data }: NodeProps) {
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                         
-                        {/* Message Actions */}
                         <div className="flex items-center gap-1 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
                           <button 
                             onClick={() => handleEditMessage(index)}
                             className="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors"
-                            title="Edit"
+                            title="Edit message"
                           >
                             <Edit3 size={12} />
                           </button>
@@ -340,6 +391,31 @@ export function TextNode({ id, data }: NodeProps) {
                               <RotateCcw size={12} />
                             </button>
                           )}
+                          {msg.role === 'assistant' && (
+                            <>
+                              <button 
+                                onClick={() => navigator.clipboard.writeText(msg.content)}
+                                className="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors"
+                                title="Copy"
+                              >
+                                <Copy size={12} />
+                              </button>
+                              <button 
+                                onClick={() => rateMessage(id, index, msg.rating === 'up' ? null : 'up')}
+                                className={`p-1 rounded transition-colors ${msg.rating === 'up' ? 'text-green-400 bg-green-900/30' : 'text-gray-500 hover:text-green-400 hover:bg-gray-800'}`}
+                                title="Good response"
+                              >
+                                <ThumbsUp size={12} />
+                              </button>
+                              <button 
+                                onClick={() => rateMessage(id, index, msg.rating === 'down' ? null : 'down')}
+                                className={`p-1 rounded transition-colors ${msg.rating === 'down' ? 'text-red-400 bg-red-900/30' : 'text-gray-500 hover:text-red-400 hover:bg-gray-800'}`}
+                                title="Bad response"
+                              >
+                                <ThumbsDown size={12} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </>
                     )}
@@ -350,16 +426,15 @@ export function TextNode({ id, data }: NodeProps) {
           </div>
         )}
         
-        {/* Loading dots */}
         {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
           <div className="p-3 flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md flex items-center justify-center bg-purple-500/20 text-purple-400">
-              <Bot size={12} />
+            <div className="w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-gray-800 text-gray-400">
+              G
             </div>
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
             </div>
           </div>
         )}
@@ -367,14 +442,15 @@ export function TextNode({ id, data }: NodeProps) {
 
       {/* Citations */}
       {citations.length > 0 && (
-        <div className="px-3 py-2 border-t border-gray-800 flex flex-wrap gap-1">
+        <div className="px-3 py-2 border-t border-gray-700 flex flex-wrap gap-1 nopan nodrag">
           {citations.slice(0, 3).map((url, i) => (
             <a 
               key={i}
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] text-blue-400 hover:text-blue-300 bg-blue-400/10 px-2 py-0.5 rounded-full truncate max-w-[120px] transition-colors"
+              className="text-[10px] text-gray-400 hover:text-white bg-gray-800 px-2 py-0.5 rounded-full truncate max-w-[120px] transition-colors"
+              title={url}
             >
               {new URL(url).hostname}
             </a>
@@ -386,37 +462,57 @@ export function TextNode({ id, data }: NodeProps) {
       )}
 
       {/* Input Area */}
-      <div className="p-3 border-t border-gray-800 bg-gray-900/50 rounded-b-xl">
+      <div className="p-3 border-t border-gray-700 bg-[#1a1a1a] nopan nodrag">
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Input 
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
-              placeholder="Continue the conversation..." 
-              className="pr-8 bg-black/20 border-gray-800 focus:border-gray-600 transition-colors"
-              disabled={isLoading}
-            />
-            <button 
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
-              disabled={isLoading}
-            >
-              <Paperclip size={14} />
-            </button>
-          </div>
+          <Input 
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
+            placeholder="Type your message..." 
+            className="bg-[#252525] border-gray-600 focus:border-gray-500"
+            disabled={isLoading}
+          />
           <Button 
             size="icon" 
             onClick={() => handleSubmit()}
             disabled={isLoading || !prompt.trim()}
-            className={`transition-all duration-200 ${isLoading ? 'animate-pulse scale-95' : 'hover:scale-105'}`}
+            title="Send message"
           >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} className="ml-0.5" />}
           </Button>
         </div>
       </div>
 
-      <Handle type="target" position={Position.Left} className="w-3 h-3 !bg-gray-600 border-2 border-gray-900 transition-all hover:!bg-white hover:scale-125" />
-      <Handle type="source" position={Position.Right} className="w-3 h-3 !bg-gray-600 border-2 border-gray-900 transition-all hover:!bg-white hover:scale-125" />
+      {/* Reasoning Section - Below input */}
+      <div className="border-t border-gray-700 bg-[#141414] rounded-b-xl nopan nodrag">
+        <button 
+          onClick={() => setShowReasoning(!showReasoning)}
+          className="w-full px-3 py-2 flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          title={showReasoning ? 'Collapse reasoning' : 'Expand reasoning'}
+        >
+          <span>Reasoning {reasoning ? `(${reasoning.length} chars)` : '(none)'}</span>
+          {showReasoning ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+        {showReasoning && reasoning && (
+          <div className="mx-3 mb-2 p-2 text-xs text-gray-500 leading-relaxed max-h-24 overflow-y-auto bg-[#0d0d0d] border border-gray-700 rounded-lg">
+            {reasoning}
+          </div>
+        )}
+      </div>
+
+      {/* Handles for connections */}
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        className="!w-4 !h-4 !bg-gray-500 !border-2 !border-gray-800 hover:!bg-white hover:!scale-125 transition-all"
+        style={{ left: -8 }}
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="!w-4 !h-4 !bg-gray-500 !border-2 !border-gray-800 hover:!bg-white hover:!scale-125 transition-all"
+        style={{ right: -8 }}
+      />
     </div>
   );
 }
