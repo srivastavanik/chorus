@@ -66,6 +66,7 @@ export function useCollaboration({
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const setNodes = useCanvasStore((state) => state.setNodes);
   const setEdges = useCanvasStore((state) => state.setEdges);
+  const stableCanvasState = useCanvasStore((state) => state.stableCanvasState);
   const nodes = useCanvasStore((state) => state.nodes);
   const edges = useCanvasStore((state) => state.edges);
 
@@ -177,18 +178,32 @@ export function useCollaboration({
           // Incremental delete - remove specific node
           if (data.nodeId) {
             const currentNodes = useCanvasStore.getState().nodes;
-            const currentEdges = useCanvasStore.getState().edges;
-            setNodes(currentNodes.filter(n => n.id !== data.nodeId));
-            setEdges(currentEdges.filter(e => e.source !== data.nodeId && e.target !== data.nodeId));
+            const exists = currentNodes.some(n => n.id === data.nodeId);
+            if (exists) {
+              const currentEdges = useCanvasStore.getState().edges;
+              setNodes(currentNodes.filter(n => n.id !== data.nodeId));
+              setEdges(currentEdges.filter(e => e.source !== data.nodeId && e.target !== data.nodeId));
+            }
           }
           break;
         case "full_sync":
           // Full sync only for explicit full sync
-          if (data.nodes) {
-            setNodes(data.nodes);
-          }
-          if (data.edges) {
-            setEdges(data.edges);
+          if (data.nodes || data.edges) {
+            // Only replace if incoming has newer or different length to avoid overwriting fresh local state
+            const currentNodes = useCanvasStore.getState().nodes;
+            const currentEdges = useCanvasStore.getState().edges;
+            const incomingNodes = data.nodes || currentNodes;
+            const incomingEdges = data.edges || currentEdges;
+
+            const nodesChanged = incomingNodes.length !== currentNodes.length;
+            const edgesChanged = incomingEdges.length !== currentEdges.length;
+
+            if (nodesChanged || edgesChanged) {
+              setNodes(incomingNodes);
+              setEdges(incomingEdges);
+              // Snapshot stable state
+              useCanvasStore.setState({ stableCanvasState: { nodes: incomingNodes, edges: incomingEdges } });
+            }
           }
           break;
         case "edge:create":
@@ -262,7 +277,7 @@ export function useCollaboration({
     };
   }, [canvasId, userId, userName, userEmail, userAvatarUrl, preferredColor, enabled, updateNodeData, setNodes, setEdges]);
 
-  // Periodic sync interval - fetch latest canvas state from server
+  // Periodic sync interval - fetch latest canvas state from server with conflict guard
   useEffect(() => {
     if (!canvasId || !enabled || !isConnected) return;
 
@@ -276,11 +291,19 @@ export function useCollaboration({
             const serverNodes = typeof canvas.nodes === 'string' ? JSON.parse(canvas.nodes) : canvas.nodes;
             const serverEdges = typeof canvas.edges === 'string' ? JSON.parse(canvas.edges) : canvas.edges;
             
-            // Only update if server has different node count (basic conflict resolution)
             const currentNodes = useCanvasStore.getState().nodes;
-            if (serverNodes && serverNodes.length !== currentNodes.length) {
+            const currentEdges = useCanvasStore.getState().edges;
+
+            const nodesChanged = serverNodes && serverNodes.length !== currentNodes.length;
+            const edgesChanged = serverEdges && serverEdges.length !== currentEdges.length;
+
+            if (nodesChanged || edgesChanged) {
               setNodes(serverNodes || []);
               setEdges(serverEdges || []);
+              useCanvasStore.setState({ stableCanvasState: { nodes: serverNodes || [], edges: serverEdges || [] } });
+            } else if (!useCanvasStore.getState().stableCanvasState) {
+              // Initialize stable snapshot once
+              useCanvasStore.setState({ stableCanvasState: { nodes: currentNodes, edges: currentEdges } });
             }
           }
         }
@@ -290,7 +313,7 @@ export function useCollaboration({
     };
 
     // Initial sync after short delay
-    const initialTimeout = setTimeout(syncFromServer, 2000);
+    const initialTimeout = setTimeout(syncFromServer, 1500);
     
     // Periodic sync
     syncIntervalRef.current = setInterval(syncFromServer, SYNC_INTERVAL_MS);

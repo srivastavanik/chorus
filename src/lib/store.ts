@@ -39,6 +39,7 @@ export interface CanvasState {
   canvasName: string | null;
   nodes: Node[];
   edges: Edge[];
+  stableCanvasState: { nodes: Node[]; edges: Edge[] } | null;
   user: any | null;
   selectedNodeId: string | null;
   saveStatus: "idle" | "saving" | "saved" | "error";
@@ -133,6 +134,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasName: null,
   nodes: [],
   edges: [],
+  stableCanvasState: null,
   user: null,
   selectedNodeId: null,
   saveStatus: "idle",
@@ -141,6 +143,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setUser: (user) => set({ user }),
   setCanvasId: (id) => set({ canvasId: id }),
   setCanvasName: (name) => set({ canvasName: name }),
+  setStableCanvasState: (snapshot: { nodes: Node[]; edges: Edge[] } | null) =>
+    set({ stableCanvasState: snapshot }),
   setMergingNodeId: (id) => set({ mergingNodeId: id }),
 
   onNodesChange: (changes) => {

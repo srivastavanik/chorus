@@ -31,6 +31,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    // Enforce file size limit: 10MB
+    const MAX_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 413 });
+    }
+
     // 1. Upload to Supabase Storage (for UI/Persistence)
     // Sanitize original filename to be safe but recognizable
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
