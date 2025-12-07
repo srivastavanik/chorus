@@ -36,6 +36,7 @@ export interface TextNodeData {
 
 export interface CanvasState {
   canvasId: string | null; // Track current canvas ID
+  canvasName: string | null;
   nodes: Node[];
   edges: Edge[];
   user: any | null;
@@ -46,6 +47,7 @@ export interface CanvasState {
   onConnect: OnConnect;
   setUser: (user: any) => void;
   setCanvasId: (id: string | null) => void;
+  setCanvasName: (name: string | null) => void;
   addNode: (
     type: NodeType,
     position?: XYPosition,
@@ -126,6 +128,7 @@ const findEmptyPosition = (
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasId: null,
+  canvasName: null,
   nodes: [],
   edges: [],
   user: null,
@@ -135,6 +138,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setUser: (user) => set({ user }),
   setCanvasId: (id) => set({ canvasId: id }),
+  setCanvasName: (name) => set({ canvasName: name }),
   setMergingNodeId: (id) => set({ mergingNodeId: id }),
 
   onNodesChange: (changes) => {
@@ -593,7 +597,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCanvas: async (name) => {
-    const { nodes, edges, canvasId } = get();
+    const { nodes, edges, canvasId, canvasName } = get();
     set({ saveStatus: "saving" });
     try {
       // Generate ID if not present to ensure upsert works
@@ -604,7 +608,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }
 
       const payload: any = { id, nodes, edges };
-      if (name) payload.name = name;
+      // Prefer passed name, then state name, then undefined (which lets backend decide or keep existing)
+      if (name) {
+        payload.name = name;
+        set({ canvasName: name });
+      } else if (canvasName) {
+        payload.name = canvasName;
+      }
 
       const response = await fetch("/api/canvas", {
         method: "POST",

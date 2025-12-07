@@ -15,11 +15,17 @@ export async function POST(req: Request) {
     
     const upsertData: any = {
       user_id: user.id,
-      name: name || 'Untitled Canvas', 
       nodes: nodes || [], 
       edges: edges || [],
       updated_at: new Date().toISOString()
     };
+
+    if (name) {
+      upsertData.name = name;
+    } else if (!id) {
+      // Only default to 'Untitled Canvas' if creating a NEW canvas (no ID) and no name provided
+      upsertData.name = 'Untitled Canvas';
+    }
 
     if (id) {
       upsertData.id = id;

@@ -23,6 +23,7 @@ export default function CanvasPage({ params }: PageProps) {
   const setEdges = useCanvasStore(state => state.setEdges);
   const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
   const setCanvasId = useCanvasStore(state => state.setCanvasId);
+  const setCanvasName = useCanvasStore(state => state.setCanvasName);
   const currentCanvasId = useCanvasStore(state => state.canvasId);
 
   // Smart initialization: If we already have the ID in the store, don't show loading
@@ -53,6 +54,7 @@ export default function CanvasPage({ params }: PageProps) {
       setEdges([]);
       setSelectedNodeId(null);
       setCanvasId(null);
+      setCanvasName(null);
 
       if (id === 'new') {
         setIsLoadingCanvas(false);
@@ -68,6 +70,7 @@ export default function CanvasPage({ params }: PageProps) {
 
            if (target && !isCancelled) {
              setCanvasId(target.id);
+             setCanvasName(target.name);
              const nodes = typeof target.nodes === 'string' ? JSON.parse(target.nodes) : target.nodes;
              const edges = typeof target.edges === 'string' ? JSON.parse(target.edges) : target.edges;
              

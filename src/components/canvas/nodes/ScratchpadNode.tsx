@@ -128,7 +128,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
 
   const scheduleAutoTitle = async (sourcePrompt: string) => {
     try {
-      const { ensureCanvasId } = useCanvasStore.getState();
+      const { ensureCanvasId, setCanvasName } = useCanvasStore.getState();
       const canvasId = await ensureCanvasId();
 
       if (!canvasId) return;
@@ -142,6 +142,9 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
         .then((res) => res.json())
         .then((data) => {
           if (data.updated) {
+            if (data.title) {
+              setCanvasName(data.title);
+            }
             window.dispatchEvent(new Event("canvas-list-updated"));
           }
         })
