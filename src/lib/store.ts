@@ -59,7 +59,8 @@ export interface CanvasState {
   addConnectedNode: (
     sourceId: string,
     sourceHandlePosition: "left" | "right",
-    dropPosition?: XYPosition
+    dropPosition?: XYPosition,
+    nodeType?: NodeType
   ) => string;
   updateNodeData: (id: string, data: Partial<any>) => void;
   updateNodeContent: (id: string, content: string) => void;
@@ -388,7 +389,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return id;
   },
 
-  addConnectedNode: (sourceId, sourceHandlePosition, dropPosition) => {
+  addConnectedNode: (sourceId, sourceHandlePosition, dropPosition, nodeType = "text") => {
     const { nodes, edges } = get();
     const sourceNode = nodes.find((n) => n.id === sourceId);
     if (!sourceNode) return "";
@@ -408,12 +409,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       );
     }
 
+    // Determine width and data based on node type
+    let width = 450;
+    let data: any = { messages: [], label: "" };
+    if (nodeType === "image") {
+      width = 400;
+      data = { label: "Image Generation" };
+    } else if (nodeType === "scratchpad") {
+      width = 352;
+      data = { label: "Scratchpad" };
+    } else if (nodeType === "file") {
+      width = 280;
+      data = { label: "File" };
+    }
+
     const newNode: Node = {
       id,
-      type: "text",
+      type: nodeType,
       position,
-      width: 450,
-      data: { messages: [], label: "" },
+      width,
+      data,
       dragHandle: ".drag-handle",
     };
 

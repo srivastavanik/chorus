@@ -52,6 +52,11 @@ type ConnectedNodeData = {
 
 const MODELS = [
   {
+    id: "grok-4-1-fast",
+    name: "Grok 4.1 Fast",
+    description: "Frontier multimodal, best for agentic",
+  },
+  {
     id: "grok-4-fast",
     name: "Grok 4 Fast",
     description: "Optimized for speed",
@@ -91,7 +96,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
-  const [model, setModel] = useState("grok-4-fast");
+  const [model, setModel] = useState("grok-4-1-fast");
   const [reasoning, setReasoning] = useState("");
   const [showReasoning, setShowReasoning] = useState(false);
   const [status, setStatus] = useState<string | null>(null);

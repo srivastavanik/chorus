@@ -71,7 +71,7 @@ async function handleChatCompletions(messages: any[], model: string, webSearch?:
   const processedMessages = processMessages(messages, imageUrls);
 
   const body: any = {
-    model: model || 'grok-4-fast',
+    model: model || 'grok-4-1-fast',
     messages: processedMessages,
     stream: true,
     temperature: 0.7,
@@ -99,7 +99,7 @@ async function handleChatCompletions(messages: any[], model: string, webSearch?:
     throw new Error(`API error: ${response.status}`);
   }
 
-  return streamResponse(response);
+  return streamChatResponse(response);
 }
 
 async function handleAgenticResponse(messages: any[], model: string, attachedFileIds: string[], imageUrls?: string[]) {
@@ -152,7 +152,7 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
   });
 
   const body = {
-    model: model || 'grok-4-fast',
+    model: model || 'grok-4-1-fast',
     input: input,
     stream: true,
     temperature: 0.7
@@ -173,11 +173,11 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
     throw new Error(`Agentic API error: ${response.status}`);
   }
 
-  return streamResponse(response);
+  return streamAgenticResponse(response);
 }
 
-// Shared stream handler
-function streamResponse(response: Response) {
+// Shared stream handler for /chat/completions
+function streamChatResponse(response: Response) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
@@ -201,17 +201,6 @@ function streamResponse(response: Response) {
             if (data.choices?.[0]?.delta?.reasoning_content) {
                 reasoningContent = data.choices[0].delta.reasoning_content;
             }
-
-            // Handle Agentic /responses format
-            if (data.output?.[0]?.content) {
-                const contentObj = data.output[0].content;
-                if (Array.isArray(contentObj)) {
-                    content = contentObj.map((c: any) => c.text || '').join('');
-                } else if (typeof contentObj === 'string') {
-                    content = contentObj;
-                }
-            }
-            // Agentic reasoning? (Structure varies, sometimes in content with type)
             
             if (reasoningContent) {
               controller.enqueue(encoder.encode(JSON.stringify({
@@ -236,13 +225,110 @@ function streamResponse(response: Response) {
             }
 
           } catch (e) {
-            // Skip
+            // Skip parse errors
           }
         } else if (line === 'data: [DONE]') {
           controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
         }
       }
     },
+  });
+
+  return new NextResponse(response.body?.pipeThrough(transformStream), {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+
+// Stream handler for /responses endpoint (agentic)
+function streamAgenticResponse(response: Response) {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const transformStream = new TransformStream({
+    async transform(chunk, controller) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+          try {
+            const data = JSON.parse(line.slice(6));
+            
+            // Handle /responses streaming format
+            // Events can be: response.created, response.in_progress, response.output_item.added,
+            // response.content_part.added, response.content_part.delta, response.output_item.done, response.done
+            
+            const eventType = data.type;
+            
+            // Handle content delta events
+            if (eventType === 'response.content_part.delta' && data.delta?.text) {
+              controller.enqueue(encoder.encode(JSON.stringify({
+                type: 'content',
+                content: data.delta.text,
+              }) + '\n'));
+            }
+            
+            // Handle reasoning content if present
+            if (data.delta?.reasoning_content) {
+              controller.enqueue(encoder.encode(JSON.stringify({
+                type: 'reasoning',
+                content: data.delta.reasoning_content,
+              }) + '\n'));
+            }
+            
+            // Handle completed response
+            if (eventType === 'response.done' || eventType === 'response.completed') {
+              // Extract final content if available
+              if (data.response?.output) {
+                for (const item of data.response.output) {
+                  if (item.content && Array.isArray(item.content)) {
+                    for (const part of item.content) {
+                      if (part.type === 'output_text' && part.text) {
+                        controller.enqueue(encoder.encode(JSON.stringify({
+                          type: 'content',
+                          content: part.text,
+                        }) + '\n'));
+                      }
+                    }
+                  }
+                }
+              }
+              controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+            }
+
+          } catch (e) {
+            // Skip parse errors
+          }
+        } else if (line === 'data: [DONE]') {
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        }
+      }
+    },
+    flush(controller) {
+      // Handle any remaining buffer
+      if (buffer.trim()) {
+        try {
+          if (buffer.startsWith('data: ') && buffer !== 'data: [DONE]') {
+            const data = JSON.parse(buffer.slice(6));
+            if (data.delta?.text) {
+              controller.enqueue(encoder.encode(JSON.stringify({
+                type: 'content',
+                content: data.delta.text,
+              }) + '\n'));
+            }
+          }
+        } catch (e) {
+          // Skip
+        }
+      }
+      controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+    }
   });
 
   return new NextResponse(response.body?.pipeThrough(transformStream), {

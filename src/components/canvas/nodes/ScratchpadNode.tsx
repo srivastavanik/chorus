@@ -240,9 +240,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
 
     try {
       // Create a new Image Node connected to this one
-      // We can't easily get the new ID from here without async wait or store update
-      // but addConnectedNode returns the ID!
-      const newNodeId = addConnectedNode(id, "right");
+      const newNodeId = addConnectedNode(id, "right", undefined, "image");
 
       if (newNodeId) {
         // Update the new node with loading state and prompt
