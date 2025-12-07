@@ -96,6 +96,10 @@ export function TextNode({ id, data, selected }: NodeProps) {
     if (lastAssistantMsg) {
       const items = extractListItems(lastAssistantMsg.content);
       setDetectedItems(items);
+      // Update local reasoning state if available in message history
+      if (lastAssistantMsg.reasoning) {
+        setReasoning(lastAssistantMsg.reasoning);
+      }
     } else {
       setDetectedItems([]);
     }
@@ -159,13 +163,19 @@ export function TextNode({ id, data, selected }: NodeProps) {
               const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
               const lastMsg = currentMessages[currentMessages.length - 1];
               if (lastMsg?.role === 'assistant') {
-                updateMessageInNode(id, currentMessages.length - 1, accumulated);
+                updateMessageInNode(id, currentMessages.length - 1, accumulated, accumulatedReasoning);
               } else {
-                addMessageToNode(id, { role: 'assistant', content: accumulated });
+                addMessageToNode(id, { role: 'assistant', content: accumulated, reasoning: accumulatedReasoning });
               }
             } else if (event.type === 'reasoning' && event.content) {
               accumulatedReasoning += event.content;
               setReasoning(accumulatedReasoning);
+              // Also update message state so it persists if we refresh or switch nodes
+              const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
+              const lastMsg = currentMessages[currentMessages.length - 1];
+              if (lastMsg?.role === 'assistant') {
+                updateMessageInNode(id, currentMessages.length - 1, accumulated, accumulatedReasoning);
+              }
             } else if (event.type === 'status') {
               setStatus(event.message || null);
             } else if (event.type === 'done') {
@@ -176,9 +186,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
             const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
             const lastMsg = currentMessages[currentMessages.length - 1];
             if (lastMsg?.role === 'assistant') {
-              updateMessageInNode(id, currentMessages.length - 1, accumulated);
+              updateMessageInNode(id, currentMessages.length - 1, accumulated, accumulatedReasoning);
             } else {
-              addMessageToNode(id, { role: 'assistant', content: accumulated });
+              addMessageToNode(id, { role: 'assistant', content: accumulated, reasoning: accumulatedReasoning });
             }
           }
         }

@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Image API error:', errorText);
-      return NextResponse.json({ error: 'Failed to generate image' }, { status: response.status });
+      console.error('Request body:', JSON.stringify(requestBody, null, 2));
+      return NextResponse.json({ error: `Failed to generate image: ${errorText}` }, { status: response.status });
     }
 
     const data = await response.json();

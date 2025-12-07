@@ -17,6 +17,7 @@ export type NodeType = "text" | "image" | "scratchpad" | "file";
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
+  reasoning?: string;
   timestamp?: number;
   rating?: "up" | "down" | null;
 }
@@ -55,7 +56,8 @@ export interface CanvasState {
   updateMessageInNode: (
     id: string,
     messageIndex: number,
-    content: string
+    content: string,
+    reasoning?: string
   ) => void;
   rateMessage: (
     nodeId: string,
@@ -192,13 +194,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
   },
 
-  updateMessageInNode: (id, messageIndex, content) => {
+  updateMessageInNode: (id, messageIndex, content, reasoning) => {
     set({
       nodes: get().nodes.map((node) => {
         if (node.id !== id) return node;
         const messages = [...(node.data.messages || [])];
         if (messages[messageIndex]) {
-          messages[messageIndex] = { ...messages[messageIndex], content };
+          messages[messageIndex] = { 
+            ...messages[messageIndex], 
+            content,
+            ...(reasoning !== undefined && { reasoning }) 
+          };
           messages.splice(messageIndex + 1);
         }
         return { ...node, data: { ...node.data, messages } };
