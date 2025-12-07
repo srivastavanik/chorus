@@ -158,14 +158,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
       
       const context = getAncestorContext(id, nodes, edges);
       
-<<<<<<< HEAD
       const nodeMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
       // currentMessages already includes the new user message we just added
       const allMessages = [...context, ...nodeMessages];
-=======
-      const nodeMessages = messages.map(m => ({ role: m.role, content: m.content }));
-      const allMessages = [...context, ...nodeMessages, { role: 'user', content: userContent }];
->>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -301,11 +296,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
   return (
     <div 
       className={`
-<<<<<<< HEAD
-        bg-[#0a0a0a] border rounded-2xl w-[450px] flex flex-col shadow-lg
-=======
         bg-[#0a0a0a] border rounded-xl flex flex-col shadow-lg transition-all duration-200
->>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
         ${isLoading ? 'border-gray-500' : ''}
         ${selected ? 'border-white' : 'border-gray-800'}
       `}
@@ -322,11 +313,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       }}
     >
       {/* Header */}
-<<<<<<< HEAD
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-[15px]">
-=======
       <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing drag-handle" onDoubleClick={handleExpand}>
->>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
         <div className="flex items-center gap-2 relative">
           <button 
             ref={modelBtnRef}
