@@ -154,10 +154,40 @@ export function TextNode({ id, data, selected }: NodeProps) {
     }
   };
 
+  const scheduleAutoTitle = async (sourcePrompt: string) => {
+    try {
+      const { ensureCanvasId } = useCanvasStore.getState();
+      const canvasId = await ensureCanvasId();
+      
+      if (!canvasId) return;
+
+      // Fire and forget - don't await the result
+      fetch('/api/canvas/title', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ canvasId, prompt: sourcePrompt }) 
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.updated) {
+          window.dispatchEvent(new Event('canvas-list-updated'));
+        }
+      })
+      .catch(err => console.error('Auto-title failed:', err));
+    } catch (e) {
+      console.error('Auto-title scheduling failed:', e);
+    }
+  };
+
   const handleSubmit = async (overridePrompt?: string) => {
     const submitPrompt = overridePrompt || prompt;
     if (!submitPrompt.trim() && attachedFiles.length === 0) return;
     
+    // Attempt auto-titling first
+    if (submitPrompt.trim()) {
+      scheduleAutoTitle(submitPrompt);
+    }
+
     setIsLoading(true);
     setReasoning('');
     setStatus(null);
@@ -208,7 +238,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
     setAttachedFiles([]); // Clear attachments after sending
     
     try {
-      const currentNode = nodes.find(n => n.id === id);
+      const currentNode = useCanvasStore.getState().nodes.find(n => n.id === id);
       const currentMessages = currentNode?.data.messages || [];
       
       const context = getAncestorContext(id, nodes, edges);

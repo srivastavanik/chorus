@@ -86,6 +86,31 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     } catch (e) { console.error(e); }
   };
 
+  const scheduleAutoTitle = async (sourcePrompt: string) => {
+    try {
+      const { ensureCanvasId } = useCanvasStore.getState();
+      const canvasId = await ensureCanvasId();
+      
+      if (!canvasId) return;
+
+      // Fire and forget
+      fetch('/api/canvas/title', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ canvasId, prompt: sourcePrompt }) 
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.updated) {
+          window.dispatchEvent(new Event('canvas-list-updated'));
+        }
+      })
+      .catch(err => console.error('Auto-title failed:', err));
+    } catch (e) {
+      console.error('Auto-title scheduling failed:', e);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     if (mode === 'edit' && !editImage) {
@@ -93,6 +118,10 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       return;
     }
     
+    if (prompt.trim()) {
+      scheduleAutoTitle(prompt);
+    }
+
     setIsLoading(true);
     setError(null);
     

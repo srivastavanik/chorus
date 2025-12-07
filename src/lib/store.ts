@@ -83,6 +83,7 @@ export interface CanvasState {
   setSelectedNodeId: (id: string | null) => void;
   updateNodeDimensions: (id: string, width: number, height?: number) => void;
   saveCanvas: (name?: string) => Promise<void>;
+  ensureCanvasId: () => Promise<string | null>;
 
   // New State for Merge
   mergingNodeId: string | null;
@@ -630,6 +631,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       console.error("Save failed:", error);
       set({ saveStatus: "error" });
     }
+  },
+
+  ensureCanvasId: async () => {
+    const { canvasId, saveCanvas } = get();
+    if (canvasId) return canvasId;
+
+    // Trigger save to generate and persist ID
+    await saveCanvas();
+
+    // Return the new ID
+    return get().canvasId;
   },
 
   // Merge Implementation

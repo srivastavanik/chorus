@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS public.users (
 ALTER TABLE public.canvases 
 ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES public.users(id) ON DELETE CASCADE;
 
+-- 2b. Add auto_title_generated flag
+ALTER TABLE public.canvases
+ADD COLUMN IF NOT EXISTS auto_title_generated BOOLEAN DEFAULT FALSE;
+
 -- 3. Create chat_messages table for history
 CREATE TABLE IF NOT EXISTS public.chat_messages (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
