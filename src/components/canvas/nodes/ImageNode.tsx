@@ -243,6 +243,17 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             mode
         });
 
+        // Broadcast to collaborators
+        broadcast('node:update', {
+            nodeId: id,
+            updates: { 
+                images: newImages, 
+                prompt, 
+                model,
+                mode
+            }
+        });
+
         // Update recent images list
         if (newImages.length > 0) {
             updateRecentImages(newImages[0].url, result.data[0].revised_prompt || prompt);
@@ -280,7 +291,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   };
 
   // Collaboration - get border color if another user is active on this node
-  const { getNodeBorderColor } = useCollaborationContext();
+  const { getNodeBorderColor, broadcast } = useCollaborationContext();
   const collaboratorColor = getNodeBorderColor(id);
 
   return (

@@ -131,7 +131,7 @@ export async function POST(req: Request) {
 
     let newVersionNumber = (maxVersion?.version_number || 0) + 1;
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 5;
     let version = null;
     let error = null;
 
@@ -156,8 +156,19 @@ export async function POST(req: Request) {
 
       // If duplicate key error, increment version number and retry
       if (insertError.code === '23505') {
-        newVersionNumber++;
+        // Fetch max version again to be sure
+        const { data: currentMax } = await supabase
+          .from('canvas_versions')
+          .select('version_number')
+          .eq('canvas_id', canvasId)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .single();
+          
+        newVersionNumber = (currentMax?.version_number || newVersionNumber) + 1;
         attempts++;
+        // Add random backoff to prevent thundering herd
+        await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 200));
         continue;
       }
 
