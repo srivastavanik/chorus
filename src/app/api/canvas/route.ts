@@ -91,11 +91,23 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data, error } = await supabase
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    let query = supabase
       .from('canvases')
       .select('*')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false });
+      .eq('user_id', user.id);
+
+    if (id) {
+        // If ID provided, return single object
+        query = query.eq('id', id).single();
+    } else {
+        // List mode
+        query = query.order('updated_at', { ascending: false });
+    }
+    
+    const { data, error } = await query;
       
     if (error) {
       console.error('Supabase error:', error);
