@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, use, useRef } from 'react';
+import { useEffect, useState, use, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { LandingPage } from '@/components/landing/LandingPage';
 import { NavBar } from '@/components/layout/NavBar';
 import Canvas from '@/components/canvas/Canvas';
 import { useCanvasStore } from '@/lib/store';
+import { CollaboratorColor } from '@/lib/collaboration';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -18,6 +19,8 @@ export default function CanvasPage({ params }: PageProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [myColor, setMyColor] = useState<CollaboratorColor>('#ef4444');
+  const setMyColorRef = useRef<((color: CollaboratorColor) => void) | null>(null);
 
   // Store Actions
   const setNodes = useCanvasStore(state => state.setNodes);
@@ -120,6 +123,16 @@ export default function CanvasPage({ params }: PageProps) {
     }
   };
 
+  const handleColorChange = useCallback((color: CollaboratorColor) => {
+    if (setMyColorRef.current) {
+      setMyColorRef.current(color);
+    }
+  }, []);
+
+  const handleSetMyColor = useCallback((setFn: (color: CollaboratorColor) => void) => {
+    setMyColorRef.current = setFn;
+  }, []);
+
   // Auth Loading
   if (loading) {
     return (
@@ -136,7 +149,12 @@ export default function CanvasPage({ params }: PageProps) {
 
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-black text-white">
-      <NavBar onHomeClick={handleHomeClick} collaborators={collaborators} />
+      <NavBar 
+        onHomeClick={handleHomeClick} 
+        collaborators={collaborators}
+        myColor={myColor}
+        onColorChange={handleColorChange}
+      />
       
       <main className="flex-1 overflow-hidden relative">
         {isLoadingCanvas ? (
@@ -147,6 +165,8 @@ export default function CanvasPage({ params }: PageProps) {
            <Canvas 
              onCanvasSelect={handleCanvasSelect} 
              onCollaboratorsChange={setCollaborators}
+             onMyColorChange={setMyColor}
+             onSetMyColor={handleSetMyColor}
            />
         )}
       </main>

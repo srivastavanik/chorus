@@ -25,6 +25,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const contentType = req.headers.get('content-type') || '';
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // Handle JSON request (avatar URL or generated avatar)
+    if (contentType.includes('application/json')) {
+      const { avatarUrl, generateNew } = await req.json();
+      
+      let newAvatarUrl: string;
+      
+      if (generateNew) {
+        // Generate a new random avatar
+        const seed = `${user.email}-${Date.now()}`;
+        newAvatarUrl = generateAvatarUrl(seed);
+      } else if (avatarUrl) {
+        // Use provided URL (must be a valid URL)
+        try {
+          new URL(avatarUrl);
+          newAvatarUrl = avatarUrl;
+        } catch {
+          return NextResponse.json({ error: 'Invalid avatar URL' }, { status: 400 });
+        }
+      } else {
+        return NextResponse.json({ error: 'No avatar URL provided' }, { status: 400 });
+      }
+
+      // Update user record
+      const { error: updateError } = await supabaseAdmin
+        .from('users')
+        .update({ avatar_url: newAvatarUrl })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('User update error:', updateError);
+        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+      }
+
+      return NextResponse.json({ avatarUrl: newAvatarUrl });
+    }
+
+    // Handle file upload - convert to base64 data URL
     const formData = await req.formData();
     const file = formData.get('file') as File;
 
@@ -37,80 +77,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'File must be an image' }, { status: 400 });
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Image must be under 2MB' }, { status: 400 });
+    // Validate file size (max 500KB for base64)
+    if (file.size > 500 * 1024) {
+      return NextResponse.json({ error: 'Image must be under 500KB' }, { status: 400 });
     }
 
-    const supabaseAdmin = getSupabaseAdmin();
-    
-    // Use canvas_assets bucket instead of separate avatars bucket
-    const bucketName = 'canvas_assets';
-    
-    // Delete old avatar if exists
-    const avatarPrefix = `avatars/${user.id}`;
-    const { data: oldAvatars } = await supabaseAdmin
-      .storage
-      .from(bucketName)
-      .list(avatarPrefix);
-    
-    if (oldAvatars && oldAvatars.length > 0) {
-      await supabaseAdmin
-        .storage
-        .from(bucketName)
-        .remove(oldAvatars.map(f => `${avatarPrefix}/${f.name}`));
-    }
-
-    // Upload new avatar
-    const ext = file.name.split('.').pop() || 'png';
-    const fileName = `avatar_${Date.now()}.${ext}`;
-    const filePath = `${avatarPrefix}/${fileName}`;
-
+    // Convert to base64 data URL
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const dataUrl = `data:${file.type};base64,${base64}`;
 
-    const { error: uploadError } = await supabaseAdmin
-      .storage
-      .from(bucketName)
-      .upload(filePath, buffer, {
-        contentType: file.type,
-        upsert: true
-      });
-
-    if (uploadError) {
-      console.error('Avatar upload error:', uploadError);
-      // If bucket doesn't exist or upload fails, fall back to generated avatar
-      const generatedUrl = generateAvatarUrl(user.email || user.id);
-      
-      const { error: updateError } = await supabaseAdmin
-        .from('users')
-        .update({ avatar_url: generatedUrl })
-        .eq('id', user.id);
-      
-      if (updateError) {
-        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
-      }
-      
-      return NextResponse.json({ avatarUrl: generatedUrl, fallback: true });
-    }
-
-    // Generate signed URL (valid for 1 year)
-    const { data: urlData, error: urlError } = await supabaseAdmin
-      .storage
-      .from(bucketName)
-      .createSignedUrl(filePath, 60 * 60 * 24 * 365);
-
-    if (urlError || !urlData) {
-      console.error('URL generation error:', urlError);
-      return NextResponse.json({ error: 'Failed to generate URL' }, { status: 500 });
-    }
-
-    const avatarUrl = urlData.signedUrl;
-
-    // Update user record
+    // Update user record with base64 avatar
     const { error: updateError } = await supabaseAdmin
       .from('users')
-      .update({ avatar_url: avatarUrl })
+      .update({ avatar_url: dataUrl })
       .eq('id', user.id);
 
     if (updateError) {
@@ -118,7 +98,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
     }
 
-    return NextResponse.json({ avatarUrl });
+    return NextResponse.json({ avatarUrl: dataUrl });
   } catch (e) {
     console.error('Avatar upload exception:', e);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

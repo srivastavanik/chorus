@@ -39,12 +39,16 @@ const edgeTypes = {
   bezier: BezierEdge,
 };
 
+import { CollaboratorColor } from "@/lib/collaboration";
+
 interface CanvasContentProps {
   onCanvasSelect?: (id: string | null) => void;
   onCollaboratorsChange?: (collaborators: any[]) => void;
+  onMyColorChange?: (color: CollaboratorColor) => void;
+  onSetMyColor?: (setFn: (color: CollaboratorColor) => void) => void;
 }
 
-function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange }: CanvasContentProps) {
+function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorChange, onSetMyColor }: CanvasContentProps) {
   const {
     nodes,
     edges,
@@ -73,7 +77,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange }: CanvasCon
     }))
   );
 
-  const { collaborators, broadcast, setActiveNode, updateCursor } = useCollaborationContext();
+  const { collaborators, broadcast, setActiveNode, updateCursor, myColor, setMyColor } = useCollaborationContext();
 
   // Get canvas ID for auto-versioning
   const canvasId = useCanvasStore((state) => state.canvasId);
@@ -99,6 +103,19 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange }: CanvasCon
       onCollaboratorsChange(collaborators);
     }
   }, [collaborators, onCollaboratorsChange]);
+
+  // Notify parent of color changes and expose setMyColor
+  useEffect(() => {
+    if (onMyColorChange) {
+      onMyColorChange(myColor);
+    }
+  }, [myColor, onMyColorChange]);
+
+  useEffect(() => {
+    if (onSetMyColor) {
+      onSetMyColor(setMyColor);
+    }
+  }, [setMyColor, onSetMyColor]);
 
   // Auto-save effect
   useEffect(() => {
@@ -420,23 +437,31 @@ function CollaboratorCursor({
 }) {
   return (
     <div
-      className="absolute pointer-events-none z-[1000] transition-all duration-75"
+      className="absolute pointer-events-none z-[1000]"
       style={{
         transform: `translate(${x}px, ${y}px)`,
+        transition: 'transform 50ms linear',
       }}
     >
+      {/* Standard cursor arrow shape */}
       <svg
-        width="24"
-        height="24"
+        width="20"
+        height="20"
         viewBox="0 0 24 24"
-        fill={color}
+        fill="none"
         className="drop-shadow-lg"
+        style={{ filter: `drop-shadow(0 2px 4px rgba(0,0,0,0.3))` }}
       >
-        <path d="M5.65376 12.456L1.5 3.2C1.5 3.2 12.9 8.9 21.5 3.2L5.65376 12.456Z" />
-        <path d="M5.65376 12.456L9 20.9L12.3462 12.456H5.65376Z" />
+        <path
+          d="M4 4L10.5 20L12.5 13.5L19 11.5L4 4Z"
+          fill={color}
+          stroke="white"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
       </svg>
       <span
-        className="absolute left-4 top-4 px-2 py-0.5 text-[10px] text-white rounded-full whitespace-nowrap"
+        className="absolute left-4 top-3 px-2 py-0.5 text-[10px] text-white rounded-full whitespace-nowrap font-medium shadow-lg"
         style={{ backgroundColor: color }}
       >
         {name}
@@ -456,13 +481,22 @@ function CanvasContent(props: CanvasContentProps) {
 export default function Canvas({
   onCanvasSelect,
   onCollaboratorsChange,
+  onMyColorChange,
+  onSetMyColor,
 }: {
   onCanvasSelect?: (id: string | null) => void;
   onCollaboratorsChange?: (collaborators: any[]) => void;
+  onMyColorChange?: (color: CollaboratorColor) => void;
+  onSetMyColor?: (setFn: (color: CollaboratorColor) => void) => void;
 }) {
   return (
     <ReactFlowProvider>
-      <CanvasContent onCanvasSelect={onCanvasSelect} onCollaboratorsChange={onCollaboratorsChange} />
+      <CanvasContent 
+        onCanvasSelect={onCanvasSelect} 
+        onCollaboratorsChange={onCollaboratorsChange}
+        onMyColorChange={onMyColorChange}
+        onSetMyColor={onSetMyColor}
+      />
     </ReactFlowProvider>
   );
 }

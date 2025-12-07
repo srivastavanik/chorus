@@ -2,10 +2,10 @@
 
 import { useState, useRef } from "react";
 import Image from "next/image";
-import { LogOut, Camera, Users } from "lucide-react";
-import { useAuth, User } from "@/components/auth/AuthProvider";
+import { LogOut, Camera, Palette } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useClickOutside } from "@/hooks/useClickOutside";
-import { getAvatarUrl } from "@/lib/collaboration";
+import { getAvatarUrl, COLLABORATOR_COLORS, CollaboratorColor } from "@/lib/collaboration";
 
 interface NavBarProps {
   onHomeClick: () => void;
@@ -15,14 +15,18 @@ interface NavBarProps {
     avatarUrl: string | null;
     color: string;
   }>;
+  myColor?: string;
+  onColorChange?: (color: CollaboratorColor) => void;
 }
 
-export function NavBar({ onHomeClick, collaborators = [] }: NavBarProps) {
+export function NavBar({ onHomeClick, collaborators = [], myColor, onColorChange }: NavBarProps) {
   const { user, logout, updateUser } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useClickOutside<HTMLDivElement>(() => setMenuOpen(false));
+  const colorPickerRef = useClickOutside<HTMLDivElement>(() => setColorPickerOpen(false));
 
   const handleSignOut = () => {
     setMenuOpen(false);
@@ -37,6 +41,12 @@ export function NavBar({ onHomeClick, collaborators = [] }: NavBarProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check file size (500KB max)
+    if (file.size > 500 * 1024) {
+      alert('Image must be under 500KB');
+      return;
+    }
+
     setUploading(true);
     try {
       const formData = new FormData();
@@ -47,18 +57,29 @@ export function NavBar({ onHomeClick, collaborators = [] }: NavBarProps) {
         body: formData,
       });
 
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Upload failed');
+      }
+
       const data = await res.json();
       if (data.avatarUrl) {
         updateUser({ avatar_url: data.avatarUrl });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Avatar upload failed:', e);
+      alert(e.message || 'Failed to upload avatar');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleColorSelect = (color: CollaboratorColor) => {
+    onColorChange?.(color);
+    setColorPickerOpen(false);
   };
 
   const avatarUrl = user ? getAvatarUrl(user.avatar_url, user.email) : null;
@@ -122,13 +143,53 @@ export function NavBar({ onHomeClick, collaborators = [] }: NavBarProps) {
           </div>
         )}
 
+        {/* Color Picker (only show if onColorChange is provided, i.e., in canvas view) */}
+        {onColorChange && myColor && (
+          <div className="relative" ref={colorPickerRef}>
+            <button
+              onClick={() => setColorPickerOpen(!colorPickerOpen)}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors"
+              title="Choose your cursor color"
+            >
+              <div
+                className="w-4 h-4 rounded-full border border-white/20"
+                style={{ backgroundColor: myColor }}
+              />
+              <Palette size={14} className="text-gray-400" />
+            </button>
+
+            {colorPickerOpen && (
+              <div className="absolute right-0 top-full mt-2 p-3 bg-[#0a0a0a] border border-white/10 rounded-lg shadow-2xl z-50">
+                <p className="text-[10px] text-gray-500 mb-2 font-mono uppercase">Your cursor color</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {COLLABORATOR_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => handleColorSelect(color)}
+                      className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
+                        color === myColor ? 'border-white scale-110' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* User Menu Dropdown */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 hover:border-white/10 transition-colors cursor-pointer group"
+            style={myColor ? { borderColor: `${myColor}40` } : undefined}
           >
-            <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 group-hover:scale-105 transition-transform">
+            <div 
+              className="w-6 h-6 rounded-full overflow-hidden border-2 group-hover:scale-105 transition-transform"
+              style={{ borderColor: myColor || 'rgba(255,255,255,0.1)' }}
+            >
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -151,7 +212,10 @@ export function NavBar({ onHomeClick, collaborators = [] }: NavBarProps) {
               <div className="px-3 py-3 border-b border-white/5">
                 <div className="flex items-center gap-3">
                   <div className="relative group">
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
+                    <div 
+                      className="w-10 h-10 rounded-full overflow-hidden border-2"
+                      style={{ borderColor: myColor || 'rgba(255,255,255,0.1)' }}
+                    >
                       {avatarUrl ? (
                         <img
                           src={avatarUrl}
@@ -190,6 +254,7 @@ export function NavBar({ onHomeClick, collaborators = [] }: NavBarProps) {
                   onChange={handleFileChange}
                   className="hidden"
                 />
+                <p className="text-[9px] text-gray-600 mt-2">Click avatar to change (max 500KB)</p>
               </div>
 
               <button

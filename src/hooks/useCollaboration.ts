@@ -8,7 +8,6 @@ import {
   CollaboratorColor,
   COLLABORATOR_COLORS,
   assignColor,
-  getAvatarUrl,
 } from "@/lib/collaboration";
 import { useCanvasStore } from "@/lib/store";
 
@@ -18,6 +17,7 @@ interface UseCollaborationOptions {
   userName: string | null;
   userEmail: string | null;
   userAvatarUrl: string | null;
+  preferredColor?: CollaboratorColor;
   enabled?: boolean;
 }
 
@@ -26,15 +26,19 @@ interface PresencePayload {
   name: string;
   email: string;
   avatarUrl: string | null;
+  color?: string;
   cursor: { x: number; y: number } | null;
   activeNodeId: string | null;
 }
 
 interface BroadcastPayload {
-  type: "node:update" | "node:create" | "node:delete" | "edge:create" | "edge:delete" | "cursor";
+  type: "node:update" | "node:create" | "node:delete" | "edge:create" | "edge:delete" | "cursor" | "full_sync";
   userId: string;
   data: any;
 }
+
+const CURSOR_THROTTLE_MS = 50; // Throttle cursor updates
+const SYNC_INTERVAL_MS = 10000; // Sync canvas state every 10 seconds
 
 export function useCollaboration({
   canvasId,
@@ -42,18 +46,31 @@ export function useCollaboration({
   userName,
   userEmail,
   userAvatarUrl,
+  preferredColor,
   enabled = true,
 }: UseCollaborationOptions) {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [myColor, setMyColor] = useState<CollaboratorColor>(COLLABORATOR_COLORS[0]);
+  const [myColor, setMyColor] = useState<CollaboratorColor>(
+    preferredColor || COLLABORATOR_COLORS[0]
+  );
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const presenceStateRef = useRef<Map<string, PresencePayload>>(new Map());
+  const lastCursorUpdateRef = useRef<number>(0);
+  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Store actions
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const setNodes = useCanvasStore((state) => state.setNodes);
   const setEdges = useCanvasStore((state) => state.setEdges);
+  const nodes = useCanvasStore((state) => state.nodes);
+  const edges = useCanvasStore((state) => state.edges);
+
+  // Update my color when preferredColor changes
+  useEffect(() => {
+    if (preferredColor) {
+      setMyColor(preferredColor);
+    }
+  }, [preferredColor]);
 
   // Subscribe to channel
   useEffect(() => {
@@ -68,6 +85,9 @@ export function useCollaboration({
       config: {
         presence: {
           key: userId,
+        },
+        broadcast: {
+          self: false, // Don't receive own broadcasts
         },
       },
     });
@@ -90,7 +110,7 @@ export function useCollaboration({
             name: presence.name || presence.email || "Anonymous",
             email: presence.email || "",
             avatarUrl: presence.avatarUrl,
-            color: assignColor(colorIndex),
+            color: (presence.color as CollaboratorColor) || assignColor(colorIndex),
             cursor: presence.cursor,
             activeNodeId: presence.activeNodeId,
             lastSeen: Date.now(),
@@ -105,16 +125,12 @@ export function useCollaboration({
     // Handle presence join
     channel.on("presence", { event: "join" }, ({ key, newPresences }) => {
       if (key === userId) return;
-
-      const presence = newPresences[0] as unknown as PresencePayload;
-      if (presence && presence.id) {
-        presenceStateRef.current.set(key, presence);
-      }
+      console.log("[Collab] User joined:", key);
     });
 
     // Handle presence leave
     channel.on("presence", { event: "leave" }, ({ key }) => {
-      presenceStateRef.current.delete(key);
+      console.log("[Collab] User left:", key);
       setCollaborators((prev) => prev.filter((c) => c.id !== key));
     });
 
@@ -125,6 +141,8 @@ export function useCollaboration({
       // Ignore own broadcasts
       if (senderId === userId) return;
 
+      console.log("[Collab] Received broadcast:", type, senderId);
+
       switch (type) {
         case "node:update":
           if (data.nodeId && data.updates) {
@@ -133,9 +151,13 @@ export function useCollaboration({
           break;
         case "node:create":
         case "node:delete":
+        case "full_sync":
           // Full sync for create/delete
           if (data.nodes) {
             setNodes(data.nodes);
+          }
+          if (data.edges) {
+            setEdges(data.edges);
           }
           break;
         case "edge:create":
@@ -159,18 +181,20 @@ export function useCollaboration({
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         setIsConnected(true);
+        console.log("[Collab] Connected to channel:", channelName);
         
-        // Assign color based on current collaborator count
+        // Use preferred color or assign based on count
         const state = channel.presenceState();
-        const myIndex = Object.keys(state).length;
-        setMyColor(assignColor(myIndex));
+        const finalColor = preferredColor || assignColor(Object.keys(state).length);
+        setMyColor(finalColor);
 
-        // Track presence
+        // Track presence with color
         await channel.track({
           id: userId,
           name: userName || userEmail || "Anonymous",
           email: userEmail || "",
           avatarUrl: userAvatarUrl,
+          color: finalColor,
           cursor: null,
           activeNodeId: null,
         } as PresencePayload);
@@ -183,7 +207,48 @@ export function useCollaboration({
       setIsConnected(false);
       setCollaborators([]);
     };
-  }, [canvasId, userId, userName, userEmail, userAvatarUrl, enabled, updateNodeData, setNodes, setEdges]);
+  }, [canvasId, userId, userName, userEmail, userAvatarUrl, preferredColor, enabled, updateNodeData, setNodes, setEdges]);
+
+  // Periodic sync interval - fetch latest canvas state from server
+  useEffect(() => {
+    if (!canvasId || !enabled || !isConnected) return;
+
+    const syncFromServer = async () => {
+      try {
+        const res = await fetch(`/api/canvas?id=${canvasId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const canvas = Array.isArray(data) ? data.find((c: any) => c.id === canvasId) : data;
+          if (canvas) {
+            const serverNodes = typeof canvas.nodes === 'string' ? JSON.parse(canvas.nodes) : canvas.nodes;
+            const serverEdges = typeof canvas.edges === 'string' ? JSON.parse(canvas.edges) : canvas.edges;
+            
+            // Only update if server has different node count (basic conflict resolution)
+            const currentNodes = useCanvasStore.getState().nodes;
+            if (serverNodes && serverNodes.length !== currentNodes.length) {
+              setNodes(serverNodes || []);
+              setEdges(serverEdges || []);
+            }
+          }
+        }
+      } catch (e) {
+        // Silent fail - real-time should handle most updates
+      }
+    };
+
+    // Initial sync after short delay
+    const initialTimeout = setTimeout(syncFromServer, 2000);
+    
+    // Periodic sync
+    syncIntervalRef.current = setInterval(syncFromServer, SYNC_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
+  }, [canvasId, enabled, isConnected, setNodes, setEdges]);
 
   // Broadcast a change to all collaborators
   const broadcast = useCallback(
@@ -199,21 +264,32 @@ export function useCollaboration({
     [userId]
   );
 
-  // Update cursor position
+  // Throttled cursor update
   const updateCursor = useCallback(
     (cursor: { x: number; y: number } | null) => {
       if (!channelRef.current || !userId) return;
 
+      const now = Date.now();
+      if (now - lastCursorUpdateRef.current < CURSOR_THROTTLE_MS) {
+        return; // Throttle
+      }
+      lastCursorUpdateRef.current = now;
+
+      // Broadcast cursor to others
+      broadcast("cursor", { cursor });
+
+      // Also update presence
       channelRef.current.track({
         id: userId,
         name: userName || userEmail || "Anonymous",
         email: userEmail || "",
         avatarUrl: userAvatarUrl,
+        color: myColor,
         cursor,
         activeNodeId: null,
       } as PresencePayload);
     },
-    [userId, userName, userEmail, userAvatarUrl]
+    [userId, userName, userEmail, userAvatarUrl, myColor, broadcast]
   );
 
   // Update active node (for highlighting)
@@ -226,25 +302,27 @@ export function useCollaboration({
         name: userName || userEmail || "Anonymous",
         email: userEmail || "",
         avatarUrl: userAvatarUrl,
+        color: myColor,
         cursor: null,
         activeNodeId: nodeId,
       } as PresencePayload);
-
-      // Also update collaborators state to show active node
-      setCollaborators((prev) =>
-        prev.map((c) => (c.id === userId ? { ...c, activeNodeId: nodeId } : c))
-      );
     },
-    [userId, userName, userEmail, userAvatarUrl]
+    [userId, userName, userEmail, userAvatarUrl, myColor]
   );
+
+  // Force sync current state to all collaborators
+  const forceSyncState = useCallback(() => {
+    broadcast("full_sync", { nodes, edges });
+  }, [broadcast, nodes, edges]);
 
   return {
     collaborators,
     myColor,
+    setMyColor,
     isConnected,
     broadcast,
     updateCursor,
     setActiveNode,
+    forceSyncState,
   };
 }
-
