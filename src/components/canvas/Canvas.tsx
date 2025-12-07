@@ -523,6 +523,12 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
           style={{ zIndex: 50 }}
         />
         <Toolbar />
+        {/* Arrow drawing layer (inside ReactFlow to track transforms) */}
+        <ArrowLayer
+          currentDrawingPoints={isCurrentlyDrawing ? drawingPoints : undefined}
+          drawingColor={arrowColor}
+          drawingStrokeWidth={3}
+        />
         
         {/* Collaborator cursors */}
         {collaborators.map((collab) =>

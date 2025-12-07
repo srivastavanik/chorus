@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useReactFlow } from "@xyflow/react";
+import { useStore } from "@xyflow/react";
 import { useCanvasStore, CanvasArrow } from "@/lib/store";
 
 // Simplify path points using Douglas-Peucker algorithm
@@ -114,10 +114,18 @@ interface ArrowPathProps {
 }
 
 function ArrowPath({ arrow, isSelected, onSelect }: ArrowPathProps) {
-  const { flowToScreenPosition } = useReactFlow();
-  
+  // Read transform from React Flow store to avoid stale coordinates on zoom/pan
+  const transform = useStore((s) => s.transform);
+  const toScreen = useCallback(
+    (p: { x: number; y: number }) => ({
+      x: p.x * transform[2] + transform[0],
+      y: p.y * transform[2] + transform[1],
+    }),
+    [transform]
+  );
+
   // Convert flow coordinates to screen coordinates
-  const screenPoints = arrow.points.map(p => flowToScreenPosition(p));
+  const screenPoints = arrow.points.map(toScreen);
   const simplifiedPoints = simplifyPath(screenPoints, 3);
   const pathD = pointsToPath(simplifiedPoints);
   const arrowhead = getArrowhead(simplifiedPoints);
@@ -183,20 +191,27 @@ export function ArrowLayer({
   const arrows = useCanvasStore((state) => state.arrows);
   const selectedArrowId = useCanvasStore((state) => state.selectedArrowId);
   const setSelectedArrowId = useCanvasStore((state) => state.setSelectedArrowId);
-  const { flowToScreenPosition } = useReactFlow();
+  const transform = useStore((s) => s.transform);
+  const toScreen = useCallback(
+    (p: { x: number; y: number }) => ({
+      x: p.x * transform[2] + transform[0],
+      y: p.y * transform[2] + transform[1],
+    }),
+    [transform]
+  );
   
   const handleSelectArrow = useCallback((id: string) => {
     setSelectedArrowId(id === selectedArrowId ? null : id);
   }, [selectedArrowId, setSelectedArrowId]);
   
   // Convert current drawing points to screen coordinates
-  const screenDrawingPoints = currentDrawingPoints?.map(p => flowToScreenPosition(p)) || [];
+  const screenDrawingPoints = currentDrawingPoints?.map(toScreen) || [];
   const drawingPath = pointsToPath(screenDrawingPoints);
   
   return (
     <svg
-      className="fixed inset-0 pointer-events-none z-[500]"
-      style={{ width: "100vw", height: "100vh" }}
+      className="absolute inset-0 pointer-events-none z-[500]"
+      style={{ width: "100%", height: "100%" }}
     >
       <defs>
         <marker

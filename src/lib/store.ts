@@ -112,6 +112,7 @@ export interface CanvasState {
   setIsDrawingArrow: (drawing: boolean) => void;
   setArrowColor: (color: string) => void;
   setSelectedArrowId: (id: string | null) => void;
+  // Arrows are currently in-memory only; persistence pending DB column migration.
 }
 
 const NODE_WIDTH = 480;
@@ -653,7 +654,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCanvas: async (name) => {
-    const { nodes, edges, arrows, canvasId, canvasName } = get();
+    const { nodes, edges, /* arrows, */ canvasId, canvasName } = get();
     set({ saveStatus: "saving" });
     try {
       // Generate ID if not present to ensure upsert works
@@ -663,7 +664,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         set({ canvasId: id });
       }
 
-      const payload: any = { id, nodes, edges, arrows };
+      // Note: arrows are kept in-memory and broadcast in real-time.
+      // Persisting arrows requires a DB column; omit for now to avoid 500s.
+      const payload: any = { id, nodes, edges };
       // Prefer passed name, then state name, then undefined (which lets backend decide or keep existing)
       if (name) {
         payload.name = name;
