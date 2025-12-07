@@ -58,6 +58,9 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
   const { screenToFlowPosition, setViewport } = useReactFlow();
   const connectingNodeRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null);
   
+  // Ref to track if we've initialized the default node
+  const hasInitializedDefaultNode = useRef(false);
+  
   // Auto-save effect
   useEffect(() => {
     if (!isReady || !user) return;
@@ -73,6 +76,16 @@ function CanvasContent({ onCanvasSelect }: { onCanvasSelect?: (id: string | null
     setViewport({ x: 300, y: 80, zoom: 0.85 }, { duration: 0 });
     setTimeout(() => setIsReady(true), 100);
   }, [setViewport]);
+
+  // Initialize with default text node if empty
+  useEffect(() => {
+    if (isReady && !hasInitializedDefaultNode.current) {
+      if (nodes.length === 0) {
+        addNode('text');
+      }
+      hasInitializedDefaultNode.current = true;
+    }
+  }, [isReady, addNode, nodes.length]);
 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
