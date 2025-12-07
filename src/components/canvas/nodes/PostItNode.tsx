@@ -87,7 +87,7 @@ export function PostItNode({ id, data, selected }: NodeProps) {
   );
 
   // Collaboration
-  const { getNodeBorderColor, broadcast } = useCollaborationContext();
+  const { getNodeBorderColor, broadcast, markNodePending } = useCollaborationContext();
   const collaboratorColor = getNodeBorderColor(id);
 
   // Sync content from external updates (collaboration)
@@ -285,7 +285,14 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                 >
                   <button
                     onClick={() => {
-                      duplicateNode(id);
+                      const before = useCanvasStore.getState().nodes;
+                      const newId = duplicateNode(id);
+                      const after = useCanvasStore.getState().nodes;
+                      const newNode = after.find((n) => !before.some((b) => b.id === n.id));
+                      if (newNode && newId) {
+                        markNodePending(newId);
+                        broadcast("node:create", { node: newNode });
+                      }
                       setShowMoreMenu(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
@@ -296,6 +303,7 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                     onClick={() => {
                       broadcast("node:delete", { nodeId: id });
                       deleteNode(id);
+                      broadcast("node:delete", { nodeId: id });
                       setShowMoreMenu(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-gray-100 transition-colors flex items-center gap-2"
@@ -309,6 +317,7 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                   <button
                     onClick={() => {
                       updateNodeType(id, "text");
+                      broadcast("node:update", { nodeId: id, updates: { type: "text" } });
                       setShowMoreMenu(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
@@ -318,6 +327,7 @@ export function PostItNode({ id, data, selected }: NodeProps) {
                   <button
                     onClick={() => {
                       updateNodeType(id, "image");
+                      broadcast("node:update", { nodeId: id, updates: { type: "image" } });
                       setShowMoreMenu(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"

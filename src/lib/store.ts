@@ -85,7 +85,7 @@ export interface CanvasState {
   splitNode: (id: string, count: number) => void;
   splitNodeWithContent: (id: string, contents: string[]) => void;
   reimagineNode: (id: string) => void;
-  addFileNode: (file: File, position: XYPosition) => Promise<string>;
+  addFileNode: (file: File, position: XYPosition, onUploadComplete?: (node: CanvasNode) => void) => Promise<string>;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
   setSelectedNodeId: (id: string | null) => void;
@@ -185,6 +185,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         node.id === id
           ? {
               ...node,
+              ...(data.type ? { type: data.type } : {}),
               // Apply positional/size updates directly on the node when present
               ...(data.position ? { position: data.position } : {}),
               ...(data.width !== undefined ? { width: data.width } : {}),
@@ -465,7 +466,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return id;
   },
 
-  addFileNode: async (file, position) => {
+  addFileNode: async (file, position, onUploadComplete) => {
     const { nodes } = get();
     const id = crypto.randomUUID();
     const nodePosition = findEmptyPosition(nodes, position.x, position.y);
@@ -494,47 +495,57 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     set({ nodes: [...nodes, newNode] });
 
-    const formData = new FormData();
-    formData.append("file", file);
+    // Kick off upload in the background so callers can broadcast immediately
+    (async () => {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
 
-      if (data.error) throw new Error(data.error);
+        if (data.error) throw new Error(data.error);
 
-      set({
-        nodes: get().nodes.map((n) =>
-          n.id === id
-            ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  fileData: data.url,
-                  xaiFileId: data.xaiFileId,
-                  uploading: false,
-                  storagePath: data.path,
-                },
-              }
-            : n
-        ),
-      });
-    } catch (error) {
-      console.error("Upload failed:", error);
-      set({
-        nodes: get().nodes.map((n) =>
-          n.id === id
-            ? {
-                ...n,
-                data: { ...n.data, uploading: false, error: "Upload failed" },
-              }
-            : n
-        ),
-      });
-    }
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    fileData: data.url,
+                    xaiFileId: data.xaiFileId,
+                    uploading: false,
+                    storagePath: data.path,
+                  },
+                }
+              : n
+          ),
+        });
+
+        if (onUploadComplete) {
+          const updatedNode = get().nodes.find((n) => n.id === id);
+          if (updatedNode) {
+            onUploadComplete(updatedNode);
+          }
+        }
+      } catch (error) {
+        console.error("Upload failed:", error);
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  data: { ...n.data, uploading: false, error: "Upload failed" },
+                }
+              : n
+          ),
+        });
+      }
+    })();
 
     return id;
   },

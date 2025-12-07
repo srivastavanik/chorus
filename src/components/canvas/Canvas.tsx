@@ -199,8 +199,9 @@ function CanvasContentInner({
             updates: { position: change.position },
           });
         }
-        // Broadcast node deletions via ReactFlow's remove change type
+
         if (change.type === "remove") {
+          // Remove node and its edges for all collaborators
           broadcast("node:delete", { nodeId: change.id });
         }
       });
@@ -398,7 +399,9 @@ function CanvasContentInner({
       const nodesBefore = useCanvasStore.getState().nodes;
 
       for (const file of files) {
-        await addFileNode(file, position);
+        await addFileNode(file, position, (uploadedNode) => {
+          broadcast("node:update", { nodeId: uploadedNode.id, updates: uploadedNode.data });
+        });
       }
 
       // Broadcast newly created file nodes (incremental)

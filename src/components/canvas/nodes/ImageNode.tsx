@@ -339,7 +339,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   };
 
   // Collaboration - get border color if another user is active on this node
-  const { getNodeBorderColor, broadcast } = useCollaborationContext();
+  const { getNodeBorderColor, broadcast, markNodePending } = useCollaborationContext();
   const collaboratorColor = getNodeBorderColor(id);
 
   return (
@@ -441,19 +441,26 @@ export function ImageNode({ id, data, selected }: NodeProps) {
                   Actions
                 </div>
                 <button
-                  onClick={() => {
-                    duplicateNode(id);
-                    setShowMoreMenu(false);
+                  onClick={() => { 
+                    const before = useCanvasStore.getState().nodes;
+                    const newId = duplicateNode(id);
+                    const after = useCanvasStore.getState().nodes;
+                    const newNode = after.find((n) => !before.some((b) => b.id === n.id));
+                    if (newNode && newId) {
+                      markNodePending(newId);
+                      broadcast("node:create", { node: newNode });
+                    }
+                    setShowMoreMenu(false); 
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
                 >
                   <Copy size={14} /> Duplicate
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={() => { 
+                    deleteNode(id); 
                     broadcast("node:delete", { nodeId: id });
-                    deleteNode(id);
-                    setShowMoreMenu(false);
+                    setShowMoreMenu(false); 
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors flex items-center gap-2 border-b border-gray-800"
                 >
@@ -463,18 +470,20 @@ export function ImageNode({ id, data, selected }: NodeProps) {
                   Convert to
                 </div>
                 <button
-                  onClick={() => {
-                    updateNodeType(id, "text");
-                    setShowMoreMenu(false);
+                  onClick={() => { 
+                    updateNodeType(id, 'text'); 
+                    broadcast("node:update", { nodeId: id, updates: { type: "text" } });
+                    setShowMoreMenu(false); 
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
                 >
                   <MessageSquare size={14} /> Text Node
                 </button>
                 <button
-                  onClick={() => {
-                    updateNodeType(id, "postit");
-                    setShowMoreMenu(false);
+                  onClick={() => { 
+                    updateNodeType(id, 'postit'); 
+                    broadcast("node:update", { nodeId: id, updates: { type: "postit" } });
+                    setShowMoreMenu(false); 
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex items-center gap-2"
                 >
