@@ -57,6 +57,10 @@ export function useCollaboration({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const lastCursorUpdateRef = useRef<number>(0);
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track current state for presence updates
+  const currentCursorRef = useRef<{ x: number; y: number } | null>(null);
+  const currentActiveNodeRef = useRef<string | null>(null);
 
   // Store actions
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
@@ -323,11 +327,12 @@ export function useCollaboration({
         return; // Throttle
       }
       lastCursorUpdateRef.current = now;
+      currentCursorRef.current = cursor;
 
       // Broadcast cursor to others
       broadcast("cursor", { cursor });
 
-      // Also update presence
+      // Also update presence (preserving activeNodeId)
       channelRef.current.track({
         id: userId,
         name: userName || userEmail || "Anonymous",
@@ -335,7 +340,7 @@ export function useCollaboration({
         avatarUrl: userAvatarUrl,
         color: myColor,
         cursor,
-        activeNodeId: null,
+        activeNodeId: currentActiveNodeRef.current,
       } as PresencePayload);
     },
     [userId, userName, userEmail, userAvatarUrl, myColor, broadcast]
@@ -346,13 +351,15 @@ export function useCollaboration({
     (nodeId: string | null) => {
       if (!channelRef.current || !userId) return;
 
+      currentActiveNodeRef.current = nodeId;
+
       channelRef.current.track({
         id: userId,
         name: userName || userEmail || "Anonymous",
         email: userEmail || "",
         avatarUrl: userAvatarUrl,
         color: myColor,
-        cursor: null,
+        cursor: currentCursorRef.current,
         activeNodeId: nodeId,
       } as PresencePayload);
     },

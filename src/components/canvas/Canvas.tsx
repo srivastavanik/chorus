@@ -444,8 +444,8 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
               key={collab.id}
               name={collab.name}
               color={collab.color}
-              x={collab.cursor.x}
-              y={collab.cursor.y}
+              flowX={collab.cursor.x}
+              flowY={collab.cursor.y}
             />
           ) : null
         )}
@@ -465,25 +465,31 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   );
 }
 
-// Collaborator cursor component
+// Collaborator cursor component - uses flow coordinates, converts to screen position
 function CollaboratorCursor({
   name,
   color,
-  x,
-  y,
+  flowX,
+  flowY,
 }: {
   name: string;
   color: string;
-  x: number;
-  y: number;
+  flowX: number;
+  flowY: number;
 }) {
+  const { flowToScreenPosition } = useReactFlow();
+  
+  // Convert flow coordinates to screen coordinates
+  const screenPos = flowToScreenPosition({ x: flowX, y: flowY });
+  
   return (
     <div
-      className="absolute pointer-events-none z-[1000]"
+      className="fixed pointer-events-none z-[1000]"
       style={{
-        transform: `translate(${x}px, ${y}px)`,
-        transition: 'transform 100ms ease-out',
-        willChange: 'transform',
+        left: screenPos.x,
+        top: screenPos.y,
+        transition: 'left 100ms ease-out, top 100ms ease-out',
+        willChange: 'left, top',
       }}
     >
       {/* Standard cursor arrow shape */}
