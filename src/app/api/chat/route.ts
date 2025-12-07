@@ -4,6 +4,8 @@ import { getUserByToken } from '@/lib/auth-utils';
 const XAI_API_KEY = process.env.XAI_API_KEY!;
 const XAI_BASE_URL = 'https://api.x.ai/v1';
 
+export const maxDuration = 60; // Increase timeout for reasoning models
+
 export async function POST(req: Request) {
   try {
     const token = req.headers.get('cookie')?.split('auth_token=')[1]?.split(';')[0];
