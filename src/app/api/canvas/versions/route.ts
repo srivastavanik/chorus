@@ -15,6 +15,37 @@ function getSupabaseAdmin() {
   return _supabaseAdmin;
 }
 
+// Check if user has access to canvas
+async function hasCanvasAccess(supabase: SupabaseClient, canvasId: string, userId: string | undefined): Promise<{ isOwner: boolean; canEdit: boolean }> {
+  if (!userId) return { isOwner: false, canEdit: false };
+
+  // Check ownership
+  const { data: canvas } = await supabase
+    .from('canvases')
+    .select('user_id')
+    .eq('id', canvasId)
+    .single();
+
+  if (!canvas) return { isOwner: false, canEdit: false };
+  
+  if (canvas.user_id === userId) {
+    return { isOwner: true, canEdit: true };
+  }
+
+  // Check share permissions
+  const { data: share } = await supabase
+    .from('canvas_shares')
+    .select('permission')
+    .eq('canvas_id', canvasId)
+    .single();
+
+  if (share && share.permission === 'edit') {
+    return { isOwner: false, canEdit: true };
+  }
+
+  return { isOwner: false, canEdit: false };
+}
+
 // GET - Fetch version history for a canvas
 export async function GET(req: Request) {
   try {
@@ -29,21 +60,20 @@ export async function GET(req: Request) {
     }
 
     const supabase = getSupabaseAdmin();
+    const { isOwner, canEdit } = await hasCanvasAccess(supabase, canvasId, user?.id);
 
-    // Verify access to canvas (owner or has share access)
-    const { data: canvas } = await supabase
-      .from('canvases')
-      .select('user_id')
-      .eq('id', canvasId)
-      .single();
+    // Need at least view access (owner or shared)
+    if (!isOwner && !canEdit) {
+      // Check if canvas has any public share
+      const { data: share } = await supabase
+        .from('canvas_shares')
+        .select('is_public')
+        .eq('canvas_id', canvasId)
+        .single();
 
-    if (!canvas) {
-      return NextResponse.json({ error: 'Canvas not found' }, { status: 404 });
-    }
-
-    // For now, only owner can view version history
-    if (canvas.user_id !== user?.id) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      if (!share?.is_public) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      }
     }
 
     // Get versions
@@ -83,19 +113,14 @@ export async function POST(req: Request) {
     }
 
     const supabase = getSupabaseAdmin();
+    const { isOwner, canEdit } = await hasCanvasAccess(supabase, canvasId, user.id);
 
-    // Verify ownership
-    const { data: canvas } = await supabase
-      .from('canvases')
-      .select('user_id')
-      .eq('id', canvasId)
-      .single();
-
-    if (!canvas || canvas.user_id !== user.id) {
+    if (!canEdit) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    // Get current max version number
+    // Use a more robust approach to avoid race conditions
+    // Get current max version number with FOR UPDATE lock pattern
     const { data: maxVersion } = await supabase
       .from('canvas_versions')
       .select('version_number')
@@ -104,40 +129,64 @@ export async function POST(req: Request) {
       .limit(1)
       .single();
 
-    const newVersionNumber = (maxVersion?.version_number || 0) + 1;
+    let newVersionNumber = (maxVersion?.version_number || 0) + 1;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let version = null;
+    let error = null;
 
-    // Create version
-    const { data: version, error } = await supabase
-      .from('canvas_versions')
-      .insert({
-        canvas_id: canvasId,
-        version_number: newVersionNumber,
-        nodes: nodes || [],
-        edges: edges || [],
-        created_by: user.id,
-      })
-      .select()
-      .single();
+    // Retry loop to handle race conditions
+    while (attempts < maxAttempts) {
+      const { data, error: insertError } = await supabase
+        .from('canvas_versions')
+        .insert({
+          canvas_id: canvasId,
+          version_number: newVersionNumber,
+          nodes: nodes || [],
+          edges: edges || [],
+          created_by: user.id,
+        })
+        .select()
+        .single();
 
-    if (error) {
+      if (!insertError) {
+        version = data;
+        break;
+      }
+
+      // If duplicate key error, increment version number and retry
+      if (insertError.code === '23505') {
+        newVersionNumber++;
+        attempts++;
+        continue;
+      }
+
+      // Other error, break out
+      error = insertError;
+      break;
+    }
+
+    if (error || !version) {
       console.error('Create version error:', error);
       return NextResponse.json({ error: 'Failed to create version' }, { status: 500 });
     }
 
-    // Cleanup old versions (keep last 50)
-    const { data: oldVersions } = await supabase
+    // Cleanup old versions (keep last 50) - do this async, don't wait
+    supabase
       .from('canvas_versions')
       .select('id')
       .eq('canvas_id', canvasId)
       .order('version_number', { ascending: false })
-      .range(50, 1000);
-
-    if (oldVersions && oldVersions.length > 0) {
-      await supabase
-        .from('canvas_versions')
-        .delete()
-        .in('id', oldVersions.map(v => v.id));
-    }
+      .range(50, 1000)
+      .then(({ data: oldVersions }) => {
+        if (oldVersions && oldVersions.length > 0) {
+          supabase
+            .from('canvas_versions')
+            .delete()
+            .in('id', oldVersions.map(v => v.id))
+            .then(() => {});
+        }
+      });
 
     return NextResponse.json({ version });
   } catch (e) {
@@ -145,4 +194,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
-
