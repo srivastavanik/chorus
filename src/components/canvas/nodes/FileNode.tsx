@@ -29,8 +29,8 @@ export function FileNode({ id, data, selected }: NodeProps) {
   const handleDownload = () => {
     if (data.fileData) {
       const link = document.createElement('a');
-      link.href = data.fileData;
-      link.download = data.label || 'file';
+      link.href = data.fileData as string;
+      link.download = (data.label as string) || 'file';
       link.click();
     }
   };
