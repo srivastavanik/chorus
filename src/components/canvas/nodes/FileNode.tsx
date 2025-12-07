@@ -20,16 +20,17 @@ const formatFileSize = (bytes: number) => {
 
 export function FileNode({ id, data, selected }: NodeProps) {
   const [showPreview, setShowPreview] = useState(false);
-  const FileIcon = getFileIcon(data.fileType || 'application/octet-stream');
-  const isImage = data.fileType?.startsWith('image/');
-  const isText = data.fileType?.includes('text') || data.fileType?.includes('json');
-  const isPDF = data.fileType?.includes('pdf');
+  const fileType = data.fileType as string | undefined;
+  const FileIcon = getFileIcon(fileType || 'application/octet-stream');
+  const isImage = fileType?.startsWith('image/');
+  const isText = fileType?.includes('text') || fileType?.includes('json');
+  const isPDF = fileType?.includes('pdf');
 
   const handleDownload = () => {
     if (data.fileData) {
       const link = document.createElement('a');
-      link.href = data.fileData;
-      link.download = data.label || 'file';
+      link.href = data.fileData as string;
+      link.download = (data.label as string) || 'file';
       link.click();
     }
   };
