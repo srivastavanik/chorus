@@ -50,29 +50,51 @@ export function FileNode({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {/* Preview for images */}
-      {isImage && data.fileData && (
-        <div className="p-2 bg-black/50">
-          <img 
-            src={data.fileData} 
-            alt={data.label} 
-            className="w-full rounded-lg max-h-[150px] object-cover"
-            draggable={false}
-          />
+      {/* Preview for images and PDFs */}
+      {data.fileData && (
+        <div className="p-2 bg-black/50 group relative" onClick={() => setShowPreview(true)}>
+          {isImage ? (
+            <img 
+              src={data.fileData} 
+              alt={data.label} 
+              className="w-full rounded-lg max-h-[250px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
+              draggable={false}
+            />
+          ) : isPDF ? (
+            <div className="w-full h-[200px] bg-white rounded-lg overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity">
+                {/* PDF Thumbnail - using object or iframe with interactions disabled */}
+                <iframe 
+                    src={`${data.fileData}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} 
+                    className="w-full h-full pointer-events-none scale-150 origin-top-left"
+                    style={{ width: '66.66%', height: '66.66%' }} // Scale back down to fix resolution if needed
+                    title="PDF Thumbnail"
+                />
+                <div className="absolute inset-0 bg-transparent" /> 
+            </div>
+          ) : (
+            <div className="w-full h-[150px] bg-[#1e1e1e] rounded-lg flex items-center justify-center cursor-pointer hover:bg-[#252525] transition-colors">
+                <FileText size={48} className="text-gray-600" />
+            </div>
+          )}
+          
+          {/* Hover Overlay Icon */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <div className="bg-black/60 p-2 rounded-full backdrop-blur-sm">
+                <Eye size={20} className="text-white" />
+            </div>
+          </div>
         </div>
       )}
 
       {/* Actions */}
       <div className="p-2 border-t border-gray-800 flex items-center gap-2 nopan nodrag">
-        {(isImage || isText || isPDF) && (
-          <button 
+        <button 
             onClick={() => setShowPreview(true)}
             className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
-          >
+        >
             <Eye size={12} />
             Preview
-          </button>
-        )}
+        </button>
         <button  
           onClick={handleDownload}
           className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
@@ -85,9 +107,8 @@ export function FileNode({ id, data, selected }: NodeProps) {
       {/* Full preview modal */}
       {showPreview && (
         <div 
-            className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-8 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-8 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={(e) => {
-                // Close if clicking outside content
                 if (e.target === e.currentTarget) setShowPreview(false);
             }}
         >
@@ -98,29 +119,36 @@ export function FileNode({ id, data, selected }: NodeProps) {
             <X size={24} />
           </button>
 
-          <div className="relative w-full h-full max-w-6xl max-h-[90vh] flex items-center justify-center">
+          <div className="relative w-full h-full max-w-6xl max-h-[90vh] flex items-center justify-center bg-[#111] rounded-xl border border-gray-800 shadow-2xl overflow-hidden">
               {isImage && data.fileData && (
                 <img 
                     src={data.fileData} 
                     alt={data.label} 
-                    className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" 
+                    className="max-w-full max-h-full object-contain" 
                 />
               )}
               {isText && data.fileData && (
-                <div className="w-full h-full bg-[#1e1e1e] rounded-lg border border-gray-800 overflow-hidden shadow-2xl">
-                    <pre className="w-full h-full p-6 overflow-auto text-sm font-mono text-gray-300">
+                <div className="w-full h-full overflow-auto">
+                    <pre className="p-8 text-sm font-mono text-gray-300 whitespace-pre-wrap">
                     {data.fileData.includes('base64,') ? atob(data.fileData.split(',')[1] || '') : data.fileData}
                     </pre>
                 </div>
               )}
               {isPDF && data.fileData && (
-                <div className="w-full h-full bg-[#1e1e1e] rounded-lg border border-gray-800 overflow-hidden shadow-2xl">
-                  <iframe 
+                <iframe 
                     src={data.fileData} 
                     className="w-full h-full"
                     title={data.label || 'PDF Preview'}
-                  />
-                </div>
+                />
+              )}
+              {!isImage && !isText && !isPDF && (
+                  <div className="flex flex-col items-center gap-4 text-gray-500">
+                      <File size={64} />
+                      <p>No preview available for this file type.</p>
+                      <button onClick={handleDownload} className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200 transition-colors">
+                          Download to view
+                      </button>
+                  </div>
               )}
           </div>
         </div>
