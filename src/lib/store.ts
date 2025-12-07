@@ -240,13 +240,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
-    const newX = sourceNode.position.x + NODE_WIDTH + PADDING;
+    // Reduced distance: width of node + small padding (20px instead of 100px)
+    const newX = sourceNode.position.x + NODE_WIDTH + 20; 
+
+    // Reduced vertical spacing
+    const VERTICAL_SPACING = NODE_HEIGHT + 20; // Reduced from + PADDING (100)
 
     for (let i = 0; i < count; i++) {
       const id = crypto.randomUUID();
       const targetY =
         sourceNode.position.y +
-        (i - Math.floor(count / 2)) * (NODE_HEIGHT + PADDING);
+        (i - Math.floor(count / 2)) * VERTICAL_SPACING;
       const position = findEmptyPosition(
         [...nodes, ...newNodes],
         newX,
@@ -282,13 +286,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
-    const newX = sourceNode.position.x + NODE_WIDTH + PADDING;
+    const newX = sourceNode.position.x + NODE_WIDTH + 20; // Reduced distance
+
+    const VERTICAL_SPACING = NODE_HEIGHT + 20;
 
     for (let i = 0; i < contents.length; i++) {
       const id = crypto.randomUUID();
       const targetY =
         sourceNode.position.y +
-        (i - Math.floor(contents.length / 2)) * (NODE_HEIGHT + PADDING);
+        (i - Math.floor(contents.length / 2)) * VERTICAL_SPACING;
       const position = findEmptyPosition(
         [...nodes, ...newNodes],
         newX,
@@ -330,7 +336,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const id = crypto.randomUUID();
     const position = findEmptyPosition(
       nodes,
-      sourceNode.position.x + NODE_WIDTH + PADDING,
+      sourceNode.position.x + NODE_WIDTH + 20, // Reduced
       sourceNode.position.y
     );
 
@@ -344,6 +350,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ? 352
         : 280);
 
+    // Copy node data for reimagining
     const newNode: Node = {
       id,
       type: sourceNode.type,
@@ -382,8 +389,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       const offsetX =
         sourceHandlePosition === "right"
-          ? NODE_WIDTH + PADDING
-          : -(NODE_WIDTH + PADDING);
+          ? NODE_WIDTH + 20 // Reduced
+          : -(NODE_WIDTH + 20);
       position = findEmptyPosition(
         nodes,
         sourceNode.position.x + offsetX,
@@ -420,12 +427,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const id = crypto.randomUUID();
     const nodePosition = findEmptyPosition(nodes, position.x, position.y);
 
+    // Optimistic UI: Read as base64 for immediate display while uploading
     const reader = new FileReader();
     const base64Preview = await new Promise<string>((resolve) => {
       reader.onload = () => resolve(reader.result as string);
       reader.readAsDataURL(file);
     });
 
+    // Create node immediately with local data
     const newNode: Node = {
       id,
       type: "file",
@@ -435,7 +444,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         label: file.name,
         fileType: file.type,
         fileSize: file.size,
-        fileData: base64Preview,
+        fileData: base64Preview, // Temporary local preview
         uploading: true,
       },
       dragHandle: ".drag-handle",
@@ -443,6 +452,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     set({ nodes: [...nodes, newNode] });
 
+    // Perform upload
     const formData = new FormData();
     formData.append("file", file);
 
@@ -455,6 +465,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       if (data.error) throw new Error(data.error);
 
+      // Update node with remote URL and xAI File ID
       set({
         nodes: get().nodes.map((n) =>
           n.id === id
@@ -462,8 +473,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                 ...n,
                 data: {
                   ...n.data,
-                  fileData: data.url,
-                  xaiFileId: data.xaiFileId,
+                  fileData: data.url, // Use signed URL
+                  xaiFileId: data.xaiFileId, // Store xAI File ID
                   uploading: false,
                   storagePath: data.path,
                 },
@@ -473,6 +484,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       });
     } catch (error) {
       console.error("Upload failed:", error);
+      // Mark as error
       set({
         nodes: get().nodes.map((n) =>
           n.id === id
@@ -489,6 +501,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { nodes, edges } = get();
     const id = crypto.randomUUID();
 
+    // Calculate position - find empty space
     const nodePosition = position
       ? findEmptyPosition(nodes, position.x, position.y)
       : findEmptyPosition(nodes);
@@ -545,6 +558,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!sourceNode) return "";
 
     const id = crypto.randomUUID();
+    // Offset position slightly
     const position = findEmptyPosition(
       nodes,
       sourceNode.position.x + 50,
@@ -556,7 +570,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       id,
       position,
       selected: false,
-      data: { ...sourceNode.data },
+      data: { ...sourceNode.data }, // Shallow copy of data
     };
 
     set({ nodes: [...nodes, newNode] });

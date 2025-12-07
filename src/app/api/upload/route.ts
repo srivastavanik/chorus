@@ -27,8 +27,10 @@ export async function POST(req: Request) {
     }
 
     // 1. Upload to Supabase Storage (for UI/Persistence)
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    // Sanitize original filename to be safe but recognizable
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    // Use timestamp prefix to ensure uniqueness but keep original name
+    const fileName = `${Date.now()}_${safeName}`;
     const filePath = `${user.id}/${fileName}`;
 
     const arrayBuffer = await file.arrayBuffer();
@@ -66,7 +68,7 @@ export async function POST(req: Request) {
             // Actually ArrayBuffer is reusable.
             // Node's FormData might need a Blob or compatible object.
             const blob = new Blob([buffer], { type: file.type });
-            xaiFormData.append('file', blob, file.name);
+            xaiFormData.append('file', blob, file.name); // Keep original name for xAI
             xaiFormData.append('purpose', 'assistants'); // Standard purpose
 
             const xaiRes = await fetch('https://api.x.ai/v1/files', {
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       path: data.path,
       url: urlData.signedUrl,
-      filename: file.name,
+      filename: file.name, // Return ORIGINAL name to frontend
       type: file.type,
       size: file.size,
       xaiFileId // Return this to frontend to store in node data
