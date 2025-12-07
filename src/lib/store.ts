@@ -633,7 +633,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCanvas: async (name) => {
-  const { nodes, edges, canvasId, canvasName } = get();
+    const { nodes, edges, canvasId, canvasName } = get();
     set({ saveStatus: "saving" });
     try {
       // Generate ID if not present to ensure upsert works
