@@ -34,8 +34,8 @@ export function FileNode({ id, data, selected }: NodeProps) {
 
   return (
     <div className={`bg-[#1a1a1a] border rounded-xl w-[280px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-700'}`}>
-      {/* Header - Drag handle */}
-      <div className="flex items-center p-3 gap-3 bg-[#252525] rounded-t-xl cursor-move drag-handle">
+      {/* Header */}
+      <div className="flex items-center p-3 gap-3 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
         <div className="bg-gray-800 p-2 rounded-lg text-gray-400">
           <FileIcon size={24} />
         </div>
@@ -56,6 +56,7 @@ export function FileNode({ id, data, selected }: NodeProps) {
             src={data.fileData} 
             alt={data.label} 
             className="w-full rounded-lg max-h-[150px] object-cover"
+            draggable={false}
           />
         </div>
       )}

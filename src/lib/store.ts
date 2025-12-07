@@ -60,53 +60,31 @@ const PADDING = 100;
 // Counter for unique positioning
 let nodeCounter = 0;
 
-// Find empty position using a grid-based approach
+// Find empty position using a cascade approach
 const findEmptyPosition = (nodes: Node[], preferredX?: number, preferredY?: number): XYPosition => {
-  // If no nodes exist, return default position
-  if (nodes.length === 0) {
-    return { x: preferredX ?? 100, y: preferredY ?? 100 };
-  }
-
   const startX = preferredX ?? 100;
   const startY = preferredY ?? 100;
   
-  // Create a simple grid-based check
-  const isOccupied = (x: number, y: number): boolean => {
-    return nodes.some(node => {
-      const dx = Math.abs(node.position.x - x);
-      const dy = Math.abs(node.position.y - y);
-      return dx < NODE_WIDTH + PADDING && dy < NODE_HEIGHT + PADDING;
-    });
-  };
-
-  // First check preferred position
-  if (!isOccupied(startX, startY)) {
-    return { x: startX, y: startY };
-  }
-
-  // Try positions in a spiral pattern
-  const directions = [
-    { x: NODE_WIDTH + PADDING, y: 0 },              // right
-    { x: 0, y: NODE_HEIGHT + PADDING },             // down
-    { x: -(NODE_WIDTH + PADDING), y: 0 },           // left  
-    { x: 0, y: -(NODE_HEIGHT + PADDING) },          // up
-  ];
-
-  for (let ring = 1; ring <= 10; ring++) {
-    for (const dir of directions) {
-      const testX = startX + dir.x * ring;
-      const testY = startY + dir.y * ring;
-      if (!isOccupied(testX, testY)) {
-        return { x: testX, y: testY };
-      }
+  // Try small offsets first (cascade effect) - up to 50 attempts
+  for (let i = 0; i < 50; i++) {
+    const offset = i * 40; // Increased offset for better visibility
+    const x = startX + offset;
+    const y = startY + offset;
+    
+    // Check if there is a node very close to this position
+    const isOccupied = nodes.some(node => 
+      Math.abs(node.position.x - x) < 40 && Math.abs(node.position.y - y) < 40
+    );
+    
+    if (!isOccupied) {
+      return { x, y };
     }
   }
 
-  // Fallback: place far to the right based on counter
-  nodeCounter++;
+  // Fallback: just add a random small offset
   return { 
-    x: startX + (nodeCounter % 3) * (NODE_WIDTH + PADDING), 
-    y: startY + Math.floor(nodeCounter / 3) * (NODE_HEIGHT + PADDING) 
+    x: startX + Math.random() * 40 - 20, 
+    y: startY + Math.random() * 40 - 20 
   };
 };
 
@@ -225,8 +203,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         id,
         type: 'text',
         position,
+        width: 450,
         data: { messages: [], label: '' },
-        dragHandle: '.drag-handle',
       });
       newEdges.push({
         id: `e${sourceId}-${id}`,
@@ -260,11 +238,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         id,
         type: 'text',
         position,
+        width: 450,
         data: { 
           messages: [{ role: 'user', content: contents[i], timestamp: Date.now() }], 
           label: contents[i].substring(0, 50) 
         },
-        dragHandle: '.drag-handle',
       });
       newEdges.push({
         id: `e${sourceId}-${id}`,
@@ -288,13 +266,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const id = crypto.randomUUID();
     const position = findEmptyPosition(nodes, sourceNode.position.x + NODE_WIDTH + PADDING, sourceNode.position.y);
     
+    const width = sourceNode.width || (sourceNode.type === 'text' ? 450 : sourceNode.type === 'image' ? 400 : sourceNode.type === 'scratchpad' ? 352 : 280);
+
     // Copy node data for reimagining
     const newNode: Node = {
       id,
       type: sourceNode.type,
       position,
+      width,
       data: { ...sourceNode.data, reimagined: true },
-      dragHandle: '.drag-handle',
     };
 
     const newEdge: Edge = {
@@ -332,8 +312,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       id,
       type: 'text',
       position,
+      width: 450,
       data: { messages: [], label: '' },
-      dragHandle: '.drag-handle',
     };
 
     const newEdge: Edge = {
@@ -367,13 +347,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       id,
       type: 'file',
       position: nodePosition,
+      width: 280, // w-[280px]
       data: { 
         label: file.name,
         fileType: file.type,
         fileSize: file.size,
         fileData,
       },
-      dragHandle: '.drag-handle',
     };
 
     set({ nodes: [...nodes, newNode] });
@@ -393,12 +373,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ? { messages: [], label: '', ...data }
       : { label: `New ${type} node`, ...data };
     
+    let width = 450;
+    if (type === 'image') width = 400;
+    if (type === 'scratchpad') width = 352;
+    if (type === 'file') width = 280;
+
     const newNode: Node = {
       id,
       type,
       position: nodePosition,
+      width,
       data: defaultData,
-      dragHandle: '.drag-handle',
     };
 
     let newEdges = edges;

@@ -218,12 +218,12 @@ export function TextNode({ id, data, selected }: NodeProps) {
         ${selected ? 'border-white' : 'border-gray-700'}
       `}
     >
-      {/* Header - This is the drag handle */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-move drag-handle">
-        <div className="flex items-center gap-2 relative nopan nodrag">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
+        <div className="flex items-center gap-2 relative">
           <button 
             onClick={() => setShowModelMenu(!showModelMenu)}
-            className="flex items-center gap-1 text-xs text-gray-400 font-medium hover:text-white transition-colors"
+            className="flex items-center gap-1 text-xs text-gray-400 font-medium hover:text-white transition-colors nodrag"
             title="Select model"
           >
             {MODELS.find(m => m.id === model)?.name || model}
@@ -231,7 +231,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
           </button>
           
           {showModelMenu && (
-            <div className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] py-1">
+            <div className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] py-1 nodrag cursor-default">
               {MODELS.map((m) => (
                 <button
                   key={m.id}
@@ -246,19 +246,19 @@ export function TextNode({ id, data, selected }: NodeProps) {
           )}
         </div>
         
-        <div className="flex items-center gap-1 nopan nodrag">
+        <div className="flex items-center gap-1">
           <button 
             onClick={() => setWebSearch(!webSearch)}
-            className={`p-1.5 rounded-md transition-all duration-200 ${webSearch ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
+            className={`p-1.5 rounded-md transition-all duration-200 nodrag ${webSearch ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
             title={webSearch ? 'Web search enabled' : 'Enable web search'}
           >
             <Globe size={14} />
           </button>
           
-          <div className="relative">
+          <div className="relative nodrag">
             <button 
               onClick={() => setShowSplitMenu(!showSplitMenu)}
-              className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
+              className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
               title="Branch into multiple nodes"
             >
               <GitBranch size={14} />
@@ -294,7 +294,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
           </div>
           
           <button 
-            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
+            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
             title="More options"
           >
             <MoreHorizontal size={14} />
@@ -462,14 +462,14 @@ export function TextNode({ id, data, selected }: NodeProps) {
       )}
 
       {/* Input Area */}
-      <div className="p-3 border-t border-gray-700 bg-[#1a1a1a] nopan nodrag">
+      <div className="p-3 border-t border-gray-700 bg-[#1a1a1a] nopan">
         <div className="flex gap-2">
           <Input 
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
             placeholder="Type your message..." 
-            className="bg-[#252525] border-gray-600 focus:border-gray-500"
+            className="bg-[#252525] border-gray-600 focus:border-gray-500 nodrag"
             disabled={isLoading}
           />
           <Button 

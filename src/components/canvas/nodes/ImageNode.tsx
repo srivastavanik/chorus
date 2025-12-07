@@ -79,18 +79,18 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
   return (
     <div className={`bg-[#1a1a1a] border rounded-xl w-[400px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-700'}`}>
-      {/* Header - Drag handle */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-move drag-handle">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2 text-gray-400">
           <ImageIcon size={14} />
           <span className="text-xs font-medium">Image Generation</span>
         </div>
         
         {/* Model selector */}
-        <div className="relative nopan nodrag">
+        <div className="relative">
           <button 
             onClick={() => setShowModelMenu(!showModelMenu)}
-            className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors"
+            className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors nodrag"
           >
             {MODELS.find(m => m.id === model)?.name || model}
             <ChevronDown size={10} />
@@ -126,6 +126,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
               src={images[selectedImageIndex].url} 
               alt="Generated" 
               className="w-full rounded-lg"
+              draggable={false}
             />
             {images.length > 1 && (
               <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">

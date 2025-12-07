@@ -256,7 +256,7 @@ body {
 /* ========== REACT FLOW CUSTOMIZATION ========== */
 
 .react-flow__node {
-  animation: scale-in 0.2s ease-out forwards;
+  /* animation: scale-in 0.2s ease-out forwards; */
   transform-origin: center center;
 }
 
@@ -324,10 +324,6 @@ body {
 
 .react-flow__minimap-mask {
   fill: rgba(255, 255, 255, 0.05) !important;
-}
-
-.react-flow__minimap-node {
-  fill: #333 !important;
 }
 
 /* Scrollbar styling */

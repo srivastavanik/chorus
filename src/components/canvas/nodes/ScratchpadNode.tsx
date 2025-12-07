@@ -134,23 +134,23 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
 
   return (
     <div className={`bg-[#1a1a1a] border rounded-xl w-[352px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-700'}`}>
-      {/* Header - Drag handle */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-move drag-handle">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252525] rounded-t-xl cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2 text-gray-400">
           <Pencil size={14} />
           <span className="text-xs font-medium">Scratchpad</span>
         </div>
-        <div className="flex items-center gap-1 nopan nodrag">
+        <div className="flex items-center gap-1">
           <button 
             onClick={() => setTool('pencil')}
-            className={`p-1.5 rounded-md transition-colors ${tool === 'pencil' ? 'bg-white text-black' : 'text-gray-500 hover:bg-gray-800'}`}
+            className={`p-1.5 rounded-md transition-colors nodrag ${tool === 'pencil' ? 'bg-white text-black' : 'text-gray-500 hover:bg-gray-800'}`}
             title="Pencil tool"
           >
             <Pencil size={14} />
           </button>
           <button 
             onClick={() => setTool('eraser')}
-            className={`p-1.5 rounded-md transition-colors ${tool === 'eraser' ? 'bg-white text-black' : 'text-gray-500 hover:bg-gray-800'}`}
+            className={`p-1.5 rounded-md transition-colors nodrag ${tool === 'eraser' ? 'bg-white text-black' : 'text-gray-500 hover:bg-gray-800'}`}
             title="Eraser tool"
           >
             <Eraser size={14} />
@@ -158,21 +158,21 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
           <div className="w-px h-4 bg-gray-700 mx-1" />
           <button 
             onClick={() => setShowGenerate(!showGenerate)}
-            className={`p-1.5 rounded-md transition-colors ${showGenerate ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-purple-400'}`}
+            className={`p-1.5 rounded-md transition-colors nodrag ${showGenerate ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-purple-400'}`}
             title="Generate from sketch"
           >
             <Wand2 size={14} />
           </button>
           <button 
             onClick={handleDownload}
-            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
+            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-md transition-colors nodrag"
             title="Download"
           >
             <Download size={14} />
           </button>
           <button 
             onClick={clearCanvas}
-            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-md transition-colors"
+            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-md transition-colors nodrag"
             title="Clear canvas"
           >
             <Trash2 size={14} />
@@ -201,6 +201,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
             src={generatedImage} 
             alt="Generated" 
             className="w-[320px] h-[320px] rounded-lg object-cover"
+            draggable={false}
           />
         ) : (
           <canvas

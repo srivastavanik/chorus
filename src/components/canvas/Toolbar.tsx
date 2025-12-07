@@ -6,13 +6,19 @@ import { useReactFlow } from '@xyflow/react';
 import { useCanvasStore } from '@/lib/store';
 
 export function Toolbar() {
-  const { zoomIn, zoomOut } = useReactFlow();
+  const { zoomIn, zoomOut, getViewport, screenToFlowPosition } = useReactFlow();
   
   const addNode = useCanvasStore((state) => state.addNode);
   const saveCanvas = useCanvasStore((state) => state.saveCanvas);
+  const setSelectedNodeId = useCanvasStore((state) => state.setSelectedNodeId);
 
   const handleAddNode = () => {
-    addNode('text', { x: Math.random() * 500 + 100, y: Math.random() * 500 + 100 });
+    // Add node in center of current viewport
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const position = screenToFlowPosition({ x: centerX, y: centerY });
+    const nodeId = addNode('text', position);
+    setSelectedNodeId(nodeId);
   };
 
   return (

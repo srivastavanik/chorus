@@ -181,7 +181,7 @@ function CanvasContent() {
         nodesConnectable={true}
         elementsSelectable={true}
         selectNodesOnDrag={false}
-        panOnDrag={[1, 2]}
+        panOnDrag={true}
         selectionOnDrag={false}
         defaultEdgeOptions={{
           type: 'bezier',
@@ -201,13 +201,24 @@ function CanvasContent() {
         <Controls 
           className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden" 
           showInteractive={false}
+          style={{ zIndex: 50 }}
         />
         <MiniMap 
           className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden" 
-          nodeColor="#404040"
+          nodeColor={(node) => {
+            switch (node.type) {
+              case 'text': return '#fff';
+              case 'image': return '#10b981'; // green-500
+              case 'scratchpad': return '#8b5cf6'; // violet-500
+              case 'file': return '#3b82f6'; // blue-500
+              default: return '#666';
+            }
+          }}
           maskColor="rgba(0, 0, 0, 0.7)"
           pannable
           zoomable
+          position="bottom-right"
+          style={{ zIndex: 50 }}
         />
         <Toolbar />
       </ReactFlow>
