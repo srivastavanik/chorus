@@ -36,6 +36,13 @@ export default function SharedCanvasPage({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [collaborators, setCollaborators] = useState<any[]>([]);
 
+  // Force auth if not logged in
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push(`/?redirect=/canvas/share/${token}`);
+    }
+  }, [user, loading, router, token]);
+
   const setNodes = useCanvasStore(state => state.setNodes);
   const setEdges = useCanvasStore(state => state.setEdges);
   const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);

@@ -118,6 +118,14 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus input when selected
+  useEffect(() => {
+    if (selected && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [selected]);
 
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const updateNodeDimensions = useCanvasStore(
@@ -1022,6 +1030,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
         )}
         <div className="flex gap-2">
           <Input
+            ref={inputRef}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) =>

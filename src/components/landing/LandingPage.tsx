@@ -13,6 +13,14 @@ export function LandingPage() {
   const [showAuth, setShowAuth] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
+  
+  // Check for redirect query param
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('redirect')) {
+      setShowAuth(true);
+    }
+  }, []);
 
   // Initialize GSAP and Lenis
   useLayoutEffect(() => {

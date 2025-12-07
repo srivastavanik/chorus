@@ -34,12 +34,26 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
              setIsLoading(false);
              return;
           }
+          // Check for redirect
+          const searchParams = new URLSearchParams(window.location.search);
+          const redirect = searchParams.get('redirect');
+          if (redirect) {
+            window.location.href = redirect;
+          }
           return; // Success
         }
       }
 
       if (res?.error) {
         setError(res.error);
+      } else if (isLogin) {
+        // Check for redirect
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirect = searchParams.get('redirect');
+        if (redirect) {
+          window.location.href = redirect;
+        }
+        if (onClose) onClose();
       }
     } catch (err) {
       setError('An unexpected error occurred');
