@@ -19,7 +19,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "PULSE / OS",
+  title: "xAI - Chorus",
   description: "A node-based AI workspace",
 };
 

@@ -7,7 +7,7 @@ import Image from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
-import { ParticleBackground } from './ParticleBackground';
+import { LongExposureBackground } from './LongExposureBackground';
 
 export function LandingPage() {
   const [showAuth, setShowAuth] = useState(false);
@@ -119,12 +119,8 @@ export function LandingPage() {
     
     const moveCursor = (e: MouseEvent) => {
       if (cursor) {
-        gsap.to(cursor, {
-          x: e.clientX,
-          y: e.clientY,
-          duration: 0.1,
-          ease: "power2.out"
-        });
+        // Simple direct transform to reduce lag/glitching
+        cursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
       }
     };
 
@@ -173,12 +169,13 @@ export function LandingPage() {
   return (
     <div ref={containerRef} className="bg-[#050505] text-[#e4e4e7] min-h-screen selection:bg-white selection:text-black relative">
       
-      {/* Background with Particle Effect */}
-      <ParticleBackground />
+      {/* Background with Particle Effect - Removed global background, moved to Hero section */}
+      {/* <LongExposureBackground /> */}
 
-      <div ref={cursorRef} className="cursor-dot fixed pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 mix-blend-difference"></div>
-      <div className="noise"></div>
+      {/* Custom Cursor - Hidden for now to fix glitching issues if needed, or use CSS based custom cursor */}
+      {/* <div ref={cursorRef} className="cursor-dot fixed pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 mix-blend-difference"></div> */}
 
+      
       {/* Nav */}
       <nav className="fixed top-0 left-0 w-full z-40">
         <div className="max-w-6xl mx-auto px-6 pt-6">
@@ -205,6 +202,8 @@ export function LandingPage() {
 
       {/* Hero */}
       <section className="min-h-screen flex flex-col md:px-12 border-neutral-900 border-b pt-20 pr-6 pl-6 relative justify-center z-10">
+        <LongExposureBackground />
+        
         <div className="max-w-7xl mx-auto w-full z-10">
           <div className="mb-12 overflow-hidden">
             <p className="text-xs font-mono text-neutral-500 uppercase tracking-widest shutter-wrapper">
@@ -214,7 +213,7 @@ export function LandingPage() {
 
           <h1 className="text-6xl md:text-8xl lg:text-9xl font-semibold tracking-tighter leading-[0.9] text-white uppercase mb-16 heading-font">
             <span className="shutter-wrapper block">
-              <span className="shutter-text text-grain-glow">Reasoning</span>
+              <span className="shutter-text text-grain-glow">Knowledge</span>
             </span>
             <span className="shutter-wrapper block">
               <span className="shutter-text text-grain-glow-dark">At</span>
@@ -229,7 +228,7 @@ export function LandingPage() {
               <span className="shutter-text">
                 Chorus replaces linear chat with spatial reasoning.
                 We convert simple prompts into complex, multi-step workflows
-                powered by next-gen models.
+                powered by next-gen models from xAI.
               </span>
             </div>
 
@@ -254,11 +253,11 @@ export function LandingPage() {
       {/* Marquee */}
       <div className="py-12 bg-neutral-900 overflow-hidden whitespace-nowrap border-b border-neutral-800 marquee-container relative z-10">
         <div className="inline-flex items-center gap-12 marquee-content">
-          <span className="text-8xl font-semibold text-neutral-800 tracking-tighter heading-font uppercase">Reasoning</span>
+          <span className="text-8xl font-semibold text-neutral-800 tracking-tighter heading-font uppercase">Knowledge</span>
           <span className="text-8xl font-semibold text-neutral-200 tracking-tighter heading-font uppercase">Generation</span>
           <span className="text-8xl font-semibold text-neutral-800 tracking-tighter heading-font uppercase">Analysis</span>
           <span className="text-8xl font-semibold text-neutral-200 tracking-tighter heading-font uppercase">Synthesis</span>
-          <span className="text-8xl font-semibold text-neutral-800 tracking-tighter heading-font uppercase">Reasoning</span>
+          <span className="text-8xl font-semibold text-neutral-800 tracking-tighter heading-font uppercase">Knowledge</span>
           <span className="text-8xl font-semibold text-neutral-200 tracking-tighter heading-font uppercase">Generation</span>
         </div>
       </div>
@@ -296,7 +295,7 @@ export function LandingPage() {
                 <span className="text-xs font-mono text-neutral-600">02</span>
               </div>
               <h3 className="text-xl font-medium text-white mb-4">Multi-Modal AI</h3>
-              <p className="text-sm text-neutral-500 leading-relaxed">Seamlessly integrate text, image, and code models. Gemini, GPT-4, and Claude in one workspace.</p>
+              <p className="text-sm text-neutral-500 leading-relaxed">Seamlessly integrate text and image models. Grok Imagine, 4.1, and more all in one workspace.</p>
             </div>
             {/* Service 3 */}
             <div className="grid-cell p-10 border-r border-b border-neutral-800 hover:bg-neutral-900/30 transition-colors group hover-trigger">
@@ -326,22 +325,24 @@ export function LandingPage() {
             <div className="grid-cell p-10 border-r border-b border-neutral-800 hover:bg-neutral-900/30 transition-colors group hover-trigger">
               <div className="mb-24 flex justify-between">
                 <svg className="w-8 h-8 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
                 <span className="text-xs font-mono text-neutral-600">05</span>
               </div>
-              <h3 className="text-xl font-medium text-white mb-4">Code Execution</h3>
-              <p className="text-sm text-neutral-500 leading-relaxed">Live runtime environments for generated code. Preview React components and Python scripts instantly.</p>
+              <h3 className="text-xl font-medium text-white mb-4">Knowledge Retrieval</h3>
+              <p className="text-sm text-neutral-500 leading-relaxed">Chat directly with your uploaded PDFs, images, and data sources. Extract insights instantly.</p>
             </div>
             {/* Service 6 */}
             <div className="grid-cell p-10 border-r border-b border-neutral-800 hover:bg-neutral-900/30 transition-colors group hover-trigger">
               <div className="mb-24 flex justify-between">
                 <svg className="w-8 h-8 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                 </svg>
                 <span className="text-xs font-mono text-neutral-600">06</span>
               </div>
@@ -407,7 +408,7 @@ export function LandingPage() {
             <div className="flex flex-col justify-center px-12 md:px-24 relative z-10 pointer-events-none">
               <div className="absolute top-12 left-12 text-xs font-mono text-neutral-500">PHASE_03</div>
               <h3 className="text-6xl md:text-8xl font-semibold text-neutral-800 mb-6 heading-font">Generate</h3>
-              <p className="text-2xl text-white max-w-xl font-light">Produce high-fidelity artifacts, code, and insights ready for deployment.</p>
+              <p className="text-2xl text-white max-w-xl font-light">Produce high-fidelity artifacts and insights ready for deployment.</p>
             </div>
             <div className="hidden lg:flex items-center justify-center relative border-l border-neutral-800/50 overflow-hidden">
                <div className="relative flex items-center gap-6">
@@ -421,7 +422,7 @@ export function LandingPage() {
                     <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                       <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
                       <path d="m2 12 20 0"></path>
-                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"></path>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                     </svg>
                   </div>
                   <div className="w-24 h-px bg-neutral-800 relative overflow-hidden">
@@ -452,12 +453,45 @@ export function LandingPage() {
           <div className="flex flex-col">
              <p className="text-sm font-mono uppercase text-neutral-500 mb-8">Built by</p>
              <div className="flex flex-col gap-6">
-               <h3 className="text-3xl md:text-5xl font-medium text-white heading-font hover:text-neutral-400 transition-colors cursor-default">
-                 Nikhil Srivastava
-               </h3>
-               <h3 className="text-3xl md:text-5xl font-medium text-white heading-font hover:text-neutral-400 transition-colors cursor-default">
-                 Akshat Shah
-               </h3>
+               <a 
+                 href="https://www.linkedin.com/in/srivastavan/" 
+                 target="_blank" 
+                 rel="noopener noreferrer" 
+                 className="flex items-center gap-4 group w-fit hover-trigger"
+               >
+                 <h3 className="text-3xl md:text-5xl font-medium text-white heading-font group-hover:text-neutral-400 transition-colors">
+                   Nikhil (Nick) Srivastava
+                 </h3>
+                 <svg 
+                   className="w-6 h-6 md:w-8 md:h-8 text-neutral-500 opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-300" 
+                   viewBox="0 0 24 24" 
+                   fill="none" 
+                   stroke="currentColor" 
+                   strokeWidth="2"
+                 >
+                   <path d="M7 17L17 7M17 7H7M17 7V17" />
+                 </svg>
+               </a>
+
+               <a 
+                 href="https://www.linkedin.com/in/akshatdotcom/" 
+                 target="_blank" 
+                 rel="noopener noreferrer" 
+                 className="flex items-center gap-4 group w-fit hover-trigger"
+               >
+                 <h3 className="text-3xl md:text-5xl font-medium text-white heading-font group-hover:text-neutral-400 transition-colors">
+                   Akshat Shah
+                 </h3>
+                 <svg 
+                   className="w-6 h-6 md:w-8 md:h-8 text-neutral-500 opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-300" 
+                   viewBox="0 0 24 24" 
+                   fill="none" 
+                   stroke="currentColor" 
+                   strokeWidth="2"
+                 >
+                   <path d="M7 17L17 7M17 7H7M17 7V17" />
+                 </svg>
+               </a>
              </div>
           </div>
         </div>

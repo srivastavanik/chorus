@@ -86,7 +86,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
-                  className="bg-transparent border-b border-white/10 focus:border-white rounded-none px-0 py-3 text-white placeholder:text-gray-800 transition-all focus:ring-0 ring-0 outline-none text-lg font-light heading-font"
+                  className="bg-transparent border-b border-white/10 focus:border-white rounded-none px-6 py-3 text-white placeholder:text-gray-800 transition-all focus:ring-0 ring-0 outline-none text-lg font-light heading-font"
                   required
                 />
               </div>
@@ -111,7 +111,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="bg-transparent border-b border-white/10 focus:border-white rounded-none px-0 py-3 text-white placeholder:text-gray-800 transition-all focus:ring-0 ring-0 outline-none text-lg font-light font-mono tracking-widest"
+                className="bg-transparent border-b border-white/10 focus:border-white rounded-none px-6 py-3 text-white placeholder:text-gray-800 transition-all focus:ring-0 ring-0 outline-none text-lg font-light font-mono tracking-widest"
                 required
                 minLength={6}
               />
@@ -179,7 +179,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
             <div className="group">
               <h3 className="text-white text-sm font-mono uppercase mb-2 tracking-widest group-hover:text-white/90 transition-colors">Multimodal Intelligence</h3>
               <p className="text-gray-500 text-sm leading-relaxed font-light group-hover:text-gray-400 transition-colors">
-                Drag and drop files, generate images, and analyze data seamlessly. Chorus understands code, vision, and context across your entire workspace.
+                Drag and drop files, generate images, and analyze data seamlessly. Chorus understands vision and context across your entire workspace.
               </p>
             </div>
 
