@@ -27,7 +27,10 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const [showGenerate, setShowGenerate] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  // We initialize from data.generatedImage if present, though we primarily use the canvas for sketches
+  const [generatedImage, setGeneratedImage] = useState<string | null>(
+    data.generatedImage || null
+  );
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   const deleteNode = useCanvasStore((state) => state.deleteNode);
@@ -62,7 +65,26 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
 
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Load existing sketch if present
+    if (data.generatedImage) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = data.generatedImage;
+    }
   }, []);
+
+  const syncCanvasToNodeData = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    updateNodeData(id, {
+      generatedImage: dataUrl,
+      label: "Scratchpad sketch",
+    });
+  };
 
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -92,6 +114,11 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     ctx.moveTo(x, y);
   };
 
+  const stopDrawing = () => {
+    setIsDrawing(false);
+    syncCanvasToNodeData();
+  };
+
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing) return;
     const canvas = canvasRef.current;
@@ -118,6 +145,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setGeneratedImage(null);
+    updateNodeData(id, { generatedImage: null, label: undefined });
   };
 
   const getCanvasDataUrl = () => {
@@ -408,11 +436,11 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
               height={1024}
               onMouseDown={startDrawing}
               onMouseMove={draw}
-              onMouseUp={() => setIsDrawing(false)}
-              onMouseLeave={() => setIsDrawing(false)}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
               onTouchStart={startDrawing}
               onTouchMove={draw}
-              onTouchEnd={() => setIsDrawing(false)}
+              onTouchEnd={stopDrawing}
             />
           )}
         </div>
