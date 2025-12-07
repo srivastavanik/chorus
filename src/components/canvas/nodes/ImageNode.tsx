@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -15,6 +15,7 @@ import { useClickOutside } from '@/hooks/useClickOutside';
 const MODELS = [
   { id: 'grok-2-image', name: 'Grok 2 Image', description: 'Latest model' },
   { id: 'grok-2-image-1212', name: 'Grok 2 Image 1212', description: 'December 2024' },
+  { id: 'grok-imagine-v0p9', name: 'Grok Imagine v0.9', description: 'Imagine model' },
 ];
 
 const QUALITY_OPTIONS = [
@@ -41,6 +42,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   const deleteNode = useCanvasStore((state) => state.deleteNode);
   const duplicateNode = useCanvasStore((state) => state.duplicateNode);
+  const updateNodeData = useCanvasStore((state) => state.updateNodeData);
 
   const modelBtnRef = useRef<HTMLButtonElement>(null);
   const qualityBtnRef = useRef<HTMLButtonElement>(null);
@@ -51,6 +53,38 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const moreMenuRef = useClickOutside<HTMLDivElement>(() => setShowMoreMenu(false), [moreBtnRef]);
 
   const [showPreview, setShowPreview] = useState(false);
+
+  // Initialize from data prop if provided (for auto-generation flow)
+  useEffect(() => {
+    if (data.isGenerating !== undefined) setIsLoading(data.isGenerating);
+    if (data.prompt) setPrompt(data.prompt);
+    if (data.editImage) setEditImage(data.editImage);
+    if (data.mode) setMode(data.mode as any);
+    if (data.images) {
+        setImages(data.images);
+        // Update local storage when images are loaded/generated
+        if (data.images.length > 0) {
+            updateRecentImages(data.images[0].url, data.prompt || data.images[0].revisedPrompt || 'Generated Image');
+        }
+    }
+    if (data.selectedImageIndex !== undefined) setSelectedImageIndex(data.selectedImageIndex);
+    if (data.error) setError(data.error);
+  }, [data]);
+
+  // Helper to update recent images in local storage
+  const updateRecentImages = (url: string, promptText: string) => {
+    try {
+        const stored = localStorage.getItem('recent_images');
+        const recent = stored ? JSON.parse(stored) : [];
+        // Check if already exists to avoid dupes
+        if (!recent.some((img: any) => img.url === url)) {
+            const newRecent = [{ url, prompt: promptText }, ...recent].slice(0, 10); // Keep last 10
+            localStorage.setItem('recent_images', JSON.stringify(newRecent));
+            // Dispatch event so dashboard updates
+            window.dispatchEvent(new Event('storage'));
+        }
+    } catch (e) { console.error(e); }
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -83,11 +117,25 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
       const result = await response.json();
       if (result.data) {
-        setImages(result.data.map((img: any) => ({
+        const newImages = result.data.map((img: any) => ({
           url: img.url,
           revisedPrompt: img.revised_prompt,
-        })));
+        }));
+        setImages(newImages);
         setSelectedImageIndex(0);
+        
+        // Save state to node data for persistence
+        updateNodeData(id, { 
+            images: newImages, 
+            prompt, 
+            model,
+            mode
+        });
+
+        // Update recent images list
+        if (newImages.length > 0) {
+            updateRecentImages(newImages[0].url, result.data[0].revised_prompt || prompt);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate');

@@ -21,6 +21,8 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const updateNodeType = useCanvasStore((state) => state.updateNodeType);
   const deleteNode = useCanvasStore((state) => state.deleteNode);
   const duplicateNode = useCanvasStore((state) => state.duplicateNode);
+  const addConnectedNode = useCanvasStore((state) => state.addConnectedNode);
+  const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   
   // Update store dimensions on resize
   const updateNodeDimensions = useCanvasStore((state) => state.updateNodeDimensions);
@@ -35,41 +37,14 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    // Set canvas internal resolution to match display size
-    // We need to preserve content on resize ideally, but for now simple resize clears or scales
-    // To preserve: create temp canvas, copy, resize, draw back
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    if (tempCtx) tempCtx.drawImage(canvas, 0, 0);
-
-    // Update dimensions
-    // The canvas element size is controlled by CSS/container, but internal width/height needs to match
-    // for correct drawing resolution.
-    // However, NodeResizer controls the container size.
-    // We'll let the canvas fill the container.
-    
-    // On init, fill white
+    // Initialize with white background
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Only fill if empty (naive check: simple fill on mount)
-    // If resizing, we might lose data if we reset width/height.
-    // Let's just handle initial setup here.
-    if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
-        // This runs on resize if we tracked it, but for now let's rely on default
-    }
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, []);
 
-  // Handle Resize: When node resizes, we might need to update canvas resolution?
-  // Actually, standard HTML5 canvas clears on resize. 
-  // A better approach for a scratchpad is a fixed resolution or scaling content.
-  // For this MVP, let's keep internal resolution fixed or matching initial, 
-  // and CSS scales it, OR we implement proper resize handling.
-  // Let's stick to CSS scaling for simplicity unless requested otherwise, 
-  // but the user said "can't expand... fix".
-  
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -139,26 +114,56 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     setIsGenerating(true);
     
     try {
-      const response = await fetch('/api/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: prompt,
-          editImage: sketchDataUrl,
-          model: 'grok-2-image',
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to generate');
+      // Create a new Image Node connected to this one
+      // We can't easily get the new ID from here without async wait or store update
+      // but addConnectedNode returns the ID!
+      const newNodeId = addConnectedNode(id, 'right');
       
-      const result = await response.json();
-      if (result.data?.[0]?.url) {
-        setGeneratedImage(result.data[0].url);
+      if (newNodeId) {
+        // Update the new node with loading state and prompt
+        updateNodeData(newNodeId, { 
+            isGenerating: true,
+            prompt: prompt,
+            editImage: sketchDataUrl, // Pass the sketch as source
+            mode: 'edit' // Set mode to edit
+        });
+
+        // Now call API
+        const response = await fetch('/api/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+            prompt: prompt,
+            editImage: sketchDataUrl,
+            model: 'grok-2-image',
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to generate: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        if (result.data?.[0]?.url) {
+            // Update the new node with the result
+            updateNodeData(newNodeId, { 
+                isGenerating: false,
+                images: [{ url: result.data[0].url, revisedPrompt: result.data[0].revised_prompt }],
+                selectedImageIndex: 0
+            });
+        } else {
+             updateNodeData(newNodeId, { isGenerating: false, error: 'No image returned' });
+        }
       }
     } catch (err) {
       console.error('Generation failed:', err);
+      // We should probably update the connected node with error state if we created it
+      // But we don't have easy access to it here if we didn't save the ID or if it failed before creation
     } finally {
       setIsGenerating(false);
+      setShowGenerate(false); // Close the generation panel
+      setPrompt('');
     }
   };
 
@@ -307,9 +312,6 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
             <canvas
               ref={canvasRef}
               className="w-full h-full cursor-crosshair touch-none"
-              // Set internal dimensions slightly larger or based on state? 
-              // For now we rely on the component mount init, which might be fixed 320x320.
-              // We should ideally use a ResizeObserver to update canvas.width/height
               width={1024} 
               height={1024}
               onMouseDown={startDrawing}

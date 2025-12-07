@@ -37,12 +37,20 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
     if (user) {
       fetchData();
       // Load recent images from local storage
-      const stored = localStorage.getItem('recent_images');
-      if (stored) {
-        try {
-          setRecentImages(JSON.parse(stored).slice(0, 4)); // Top 4
-        } catch (e) { console.error(e); }
-      }
+      // In a real implementation, this would come from an API
+      // We need to ensure components saving images update this storage or we implement a proper backend table
+      const updateRecentImages = () => {
+        const stored = localStorage.getItem('recent_images');
+        if (stored) {
+          try {
+            setRecentImages(JSON.parse(stored).slice(0, 4)); // Top 4
+          } catch (e) { console.error(e); }
+        }
+      };
+      
+      updateRecentImages();
+      window.addEventListener('storage', updateRecentImages); // Listen for changes
+      return () => window.removeEventListener('storage', updateRecentImages);
     }
   }, [user]);
 
