@@ -166,23 +166,16 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       // Try to get image from connected image nodes
       for (const node of connectedNodes) {
         if (node?.type === 'image') {
+          const nodeData = node.data as { images?: Array<{ url: string }>; editImage?: string; generatedImage?: string; canvasData?: string };
           // Get image URL from image node
-          if (node.data?.images?.[0]?.url) {
-            sourceImageForEdit = node.data.generatedImage as string;
+          if (nodeData?.images?.[0]?.url) {
+            sourceImageForEdit = nodeData.images[0].url;
             break;
-          } else if (node.data?.canvasData) {
-            sourceImageForEdit = node.data.canvasData as string;
+          } else if (nodeData?.editImage) {
+            sourceImageForEdit = nodeData.editImage;
             break;
-          }
-        }
-        // Also check connected ImageNodes
-        if (node?.type === 'image') {
-          const images = node.data?.images as Array<{ url: string }> | undefined;
-          if (images?.[0]?.url) {
-            sourceImageForEdit = images[0].url;
-            break;
-          } else if (node.data?.editImage) {
-            sourceImageForEdit = node.data.editImage as string;
+          } else if (nodeData?.canvasData) {
+            sourceImageForEdit = nodeData.canvasData;
             break;
           }
         }
