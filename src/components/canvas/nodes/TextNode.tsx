@@ -341,6 +341,15 @@ export function TextNode({ id, data, selected }: NodeProps) {
     addMessageToNode(id, { role: "user", content: userContent });
     setAttachedFiles([]); // Clear attachments after sending
 
+    // Broadcast user message immediately
+    const nodeWithUserMsg = useCanvasStore.getState().nodes.find((n) => n.id === id);
+    if (nodeWithUserMsg) {
+      broadcast("node:update", { 
+        nodeId: id, 
+        updates: { messages: nodeWithUserMsg.data.messages } 
+      });
+    }
+
     try {
       const currentNode = useCanvasStore
         .getState()
@@ -387,6 +396,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       const decoder = new TextDecoder();
       let accumulated = "";
       let accumulatedReasoning = "";
+      let lastBroadcastTime = 0;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -394,6 +404,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
 
         const text = decoder.decode(value);
         const lines = text.split("\n").filter(Boolean);
+        let needsBroadcast = false;
 
         for (const line of lines) {
           try {
@@ -419,6 +430,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
                   reasoning: accumulatedReasoning,
                 });
               }
+              needsBroadcast = true;
             } else if (event.type === "reasoning" && event.content) {
               accumulatedReasoning += event.content;
               setReasoning(accumulatedReasoning);
@@ -434,6 +446,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
                   accumulatedReasoning
                 );
               }
+              needsBroadcast = true;
             } else if (event.type === "status") {
               setStatus(event.message || null);
             } else if (event.type === "done") {
@@ -443,6 +456,30 @@ export function TextNode({ id, data, selected }: NodeProps) {
             // skip
           }
         }
+
+        // Broadcast updates (throttled)
+        if (needsBroadcast) {
+          const now = Date.now();
+          if (now - lastBroadcastTime > 100) {
+            const currentNode = useCanvasStore.getState().nodes.find((n) => n.id === id);
+            if (currentNode) {
+              broadcast("node:update", { 
+                nodeId: id, 
+                updates: { messages: currentNode.data.messages } 
+              });
+              lastBroadcastTime = now;
+            }
+          }
+        }
+      }
+
+      // Final broadcast
+      const finalNode = useCanvasStore.getState().nodes.find((n) => n.id === id);
+      if (finalNode) {
+        broadcast("node:update", { 
+          nodeId: id, 
+          updates: { messages: finalNode.data.messages } 
+        });
       }
     } catch (e) {
       console.error(e);
@@ -525,7 +562,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
     modelSupportsReasoning && (reasoning || isLoading);
 
   // Collaboration - get border color if another user is active on this node
-  const { getNodeBorderColor } = useCollaborationContext();
+  const { getNodeBorderColor, broadcast } = useCollaborationContext();
   const collaboratorColor = getNodeBorderColor(id);
 
   return (

@@ -131,7 +131,9 @@ export function useCollaboration({
     // Handle presence leave
     channel.on("presence", { event: "leave" }, ({ key }) => {
       console.log("[Collab] User left:", key);
-      setCollaborators((prev) => prev.filter((c) => c.id !== key));
+      // We rely on the 'sync' event to update the collaborators list accurately
+      // primarily because a user might have multiple tabs (presences) open.
+      // The 'sync' event will fire after 'leave' with the updated state.
     });
 
     // Handle broadcast messages

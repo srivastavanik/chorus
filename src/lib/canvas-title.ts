@@ -10,18 +10,11 @@ export async function generateTitleFromPrompt(prompt: string): Promise<string> {
 
   try {
     const response = await xai.chat.completions.create({
-      model: 'grok-4-fast-non-reasoning', // Use a fast/mini model for speed
+      model: 'grok-beta', // Use a reliable fast model
       messages: [
         {
           role: 'system',
-          content: `You are a specialized assistant that generates short, descriptive titles for user queries.
-Rules:
-1. Output ONLY the title. No quotes, no intro, no labels, no markdown (no ###, **, etc).
-2. Max 6-8 words. Keep it concise.
-3. No emojis.
-4. Avoid "Untitled" or generic names if possible.
-5. If the prompt is meaningless, return "Untitled Canvas".
-6. Do NOT use markdown formatting like ### or ** in the title.`
+          content: `Generate a 3-6 word concise title for this content. No quotes. No markdown.`
         },
         {
           role: 'user',

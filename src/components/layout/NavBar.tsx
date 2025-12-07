@@ -159,15 +159,15 @@ export function NavBar({ onHomeClick, collaborators = [], myColor, onColorChange
             </button>
 
             {colorPickerOpen && (
-              <div className="absolute right-0 top-full mt-2 p-3 bg-[#0a0a0a] border border-white/10 rounded-lg shadow-2xl z-50">
-                <p className="text-[10px] text-gray-500 mb-2 font-mono uppercase">Your cursor color</p>
-                <div className="grid grid-cols-4 gap-2">
+              <div className="absolute right-0 top-full mt-2 p-4 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl z-50 w-48">
+                <p className="text-[10px] text-gray-500 mb-3 font-mono uppercase tracking-wider text-center">Your cursor color</p>
+                <div className="grid grid-cols-4 gap-3 place-items-center">
                   {COLLABORATOR_COLORS.map((color) => (
                     <button
                       key={color}
                       onClick={() => handleColorSelect(color)}
-                      className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
-                        color === myColor ? 'border-white scale-110' : 'border-transparent'
+                      className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                        color === myColor ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'border-transparent hover:border-white/20'
                       }`}
                       style={{ backgroundColor: color }}
                       title={color}
