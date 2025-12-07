@@ -55,20 +55,23 @@ const MODELS = [
     id: "grok-4-1-fast",
     name: "Grok 4.1 Fast",
     description: "Frontier multimodal, best for agentic",
+    supportsReasoning: true,
   },
   {
     id: "grok-4-fast",
     name: "Grok 4 Fast",
     description: "Optimized for speed",
+    supportsReasoning: true,
   },
-  { id: "grok-4", name: "Grok 4", description: "Full reasoning" },
+  { id: "grok-4", name: "Grok 4", description: "Full reasoning", supportsReasoning: true },
   {
     id: "grok-4-fast-non-reasoning",
     name: "Grok 4 Fast (No Reasoning)",
     description: "Fastest responses",
+    supportsReasoning: false,
   },
-  { id: "grok-3", name: "Grok 3", description: "Previous generation" },
-  { id: "grok-3-mini", name: "Grok 3 Mini", description: "Lightweight" },
+  { id: "grok-3", name: "Grok 3", description: "Previous generation", supportsReasoning: false },
+  { id: "grok-3-mini", name: "Grok 3 Mini", description: "Lightweight", supportsReasoning: false },
 ];
 
 // Extract numbered/bulleted items from text
@@ -515,9 +518,10 @@ export function TextNode({ id, data, selected }: NodeProps) {
     setShowSplitMenu(false);
   };
 
+  const currentModelConfig = MODELS.find((m) => m.id === model);
+  const modelSupportsReasoning = currentModelConfig?.supportsReasoning ?? false;
   const isReasoningSectionVisible =
-    reasoning ||
-    (isLoading && model.includes("grok-4") && !model.includes("non-reasoning"));
+    modelSupportsReasoning && (reasoning || isLoading);
 
   return (
     <div
