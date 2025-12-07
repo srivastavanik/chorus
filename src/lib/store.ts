@@ -204,12 +204,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       nodes: get().nodes.map((node) => {
         if (node.id !== id) return node;
-        const messages = node.data.messages || [];
+        const messages = (node.data.messages || []) as ChatMessage[];
+        const newMessage: ChatMessage = { ...message, timestamp: Date.now() };
         return {
           ...node,
           data: {
             ...node.data,
-            messages: [...messages, { ...message, timestamp: Date.now() }],
+            messages: [...messages, newMessage],
           },
         };
       }),
@@ -220,7 +221,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       nodes: get().nodes.map((node) => {
         if (node.id !== id) return node;
-        const messages = [...(node.data.messages || [])];
+        const messages = [...((node.data.messages || []) as ChatMessage[])];
         if (messages[messageIndex]) {
           messages[messageIndex] = {
             ...messages[messageIndex],
@@ -238,7 +239,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       nodes: get().nodes.map((node) => {
         if (node.id !== nodeId) return node;
-        const messages = [...(node.data.messages || [])];
+        const messages = [...((node.data.messages || []) as ChatMessage[])];
         if (messages[messageIndex]) {
           messages[messageIndex] = { ...messages[messageIndex], rating };
         }
@@ -680,8 +681,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const newId = crypto.randomUUID();
 
-    const sourceMsgs = sourceNode.data.messages || [];
-    const targetMsgs = targetNode.data.messages || [];
+    const sourceMsgs = (sourceNode.data.messages || []) as ChatMessage[];
+    const targetMsgs = (targetNode.data.messages || []) as ChatMessage[];
 
     // Sort merged messages by timestamp
     const combinedMessages = [...sourceMsgs, ...targetMsgs].sort(
