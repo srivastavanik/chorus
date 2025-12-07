@@ -164,13 +164,21 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   // Broadcast edge changes
   const handleEdgesChange: typeof onEdgesChange = useCallback(
     (changes) => {
+      const edgesBefore = useCanvasStore.getState().edges;
       onEdgesChange(changes);
       
-      const store = useCanvasStore.getState();
+      // Broadcast incremental edge changes
       changes.forEach((change) => {
-        if (change.type === "add" || change.type === "remove") {
-          broadcast("edge:create", { edges: store.edges });
+        if (change.type === "remove" && "id" in change) {
+          broadcast("edge:delete", { edgeId: change.id });
         }
+      });
+      
+      // Check for new edges
+      const edgesAfter = useCanvasStore.getState().edges;
+      const newEdges = edgesAfter.filter(e => !edgesBefore.some(eb => eb.id === e.id));
+      newEdges.forEach(edge => {
+        broadcast("edge:create", { edge });
       });
     },
     [onEdgesChange, broadcast]
@@ -179,11 +187,15 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   // Wrap onConnect to broadcast edge connections
   const handleConnect = useCallback(
     (connection: any) => {
+      const edgesBefore = useCanvasStore.getState().edges;
       onConnect(connection);
-      // Broadcast after state update
+      // Broadcast the newly created edge (incremental)
       setTimeout(() => {
-        const store = useCanvasStore.getState();
-        broadcast("edge:create", { edges: store.edges });
+        const edgesAfter = useCanvasStore.getState().edges;
+        const newEdge = edgesAfter.find(e => !edgesBefore.some(eb => eb.id === e.id));
+        if (newEdge) {
+          broadcast("edge:create", { edge: newEdge });
+        }
       }, 0);
     },
     [onConnect, broadcast]
@@ -206,12 +218,16 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   const handleAddNode = (type: NodeType) => {
     if (menu) {
       const position = screenToFlowPosition({ x: menu.x, y: menu.y });
+      const nodesBefore = useCanvasStore.getState().nodes;
       addNode(type, position);
       setMenu(null);
       
-      // Broadcast node creation
-      const store = useCanvasStore.getState();
-      broadcast("node:create", { nodes: store.nodes });
+      // Broadcast the newly created node (incremental)
+      const nodesAfter = useCanvasStore.getState().nodes;
+      const newNode = nodesAfter.find(n => !nodesBefore.some(nb => nb.id === n.id));
+      if (newNode) {
+        broadcast("node:create", { node: newNode });
+      }
     }
   };
 
@@ -254,16 +270,24 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
 
         const handlePosition =
           connectingNodeRef.current.handleType === "source" ? "right" : "left";
+        const nodesBefore = useCanvasStore.getState().nodes;
+        const edgesBefore = useCanvasStore.getState().edges;
+        
         addConnectedNode(
           connectingNodeRef.current.nodeId,
           handlePosition,
           dropPosition
         );
         
-        // Broadcast node creation
+        // Broadcast the newly created node and edge (incremental)
         setTimeout(() => {
-          const store = useCanvasStore.getState();
-          broadcast("node:create", { nodes: store.nodes, edges: store.edges });
+          const nodesAfter = useCanvasStore.getState().nodes;
+          const edgesAfter = useCanvasStore.getState().edges;
+          const newNode = nodesAfter.find(n => !nodesBefore.some(nb => nb.id === n.id));
+          const newEdge = edgesAfter.find(e => !edgesBefore.some(eb => eb.id === e.id));
+          if (newNode) {
+            broadcast("node:create", { node: newNode, edge: newEdge });
+          }
         }, 0);
       }
 
@@ -297,13 +321,18 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
         y: event.clientY,
       });
 
+      const nodesBefore = useCanvasStore.getState().nodes;
+      
       for (const file of files) {
         await addFileNode(file, position);
       }
       
-      // Broadcast node creation
-      const store = useCanvasStore.getState();
-      broadcast("node:create", { nodes: store.nodes });
+      // Broadcast newly created file nodes (incremental)
+      const nodesAfter = useCanvasStore.getState().nodes;
+      const newNodes = nodesAfter.filter(n => !nodesBefore.some(nb => nb.id === n.id));
+      newNodes.forEach(node => {
+        broadcast("node:create", { node });
+      });
     },
     [screenToFlowPosition, addFileNode, broadcast]
   );
@@ -453,7 +482,8 @@ function CollaboratorCursor({
       className="absolute pointer-events-none z-[1000]"
       style={{
         transform: `translate(${x}px, ${y}px)`,
-        transition: 'transform 50ms linear',
+        transition: 'transform 100ms ease-out',
+        willChange: 'transform',
       }}
     >
       {/* Standard cursor arrow shape */}

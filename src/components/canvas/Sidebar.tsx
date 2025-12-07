@@ -13,15 +13,23 @@ import {
   Check,
   X,
   Share2,
+  Users,
 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { useCanvasStore } from "@/lib/store";
 import { ShareModal } from "./ShareModal";
 
+interface ShareInfo {
+  permission: 'view' | 'edit';
+  is_public: boolean;
+}
+
 interface CanvasHistory {
   id: string;
   name: string;
   updated_at: string;
+  share?: ShareInfo;
+  collaborators?: { id: string; avatar_url: string | null; name?: string }[];
 }
 
 interface SidebarProps {
@@ -57,7 +65,28 @@ export function Sidebar({ onCanvasSelect }: SidebarProps) {
       const res = await fetch("/api/canvas");
       const data = await res.json();
       if (Array.isArray(data)) {
-        setHistory(data);
+        // Fetch share info for each canvas
+        const canvasesWithShares = await Promise.all(
+          data.map(async (canvas: CanvasHistory) => {
+            try {
+              const shareRes = await fetch(`/api/canvas/share?canvasId=${canvas.id}`);
+              if (shareRes.ok) {
+                const shareData = await shareRes.json();
+                if (shareData.share) {
+                  return {
+                    ...canvas,
+                    share: shareData.share,
+                    collaborators: shareData.collaborators || [],
+                  };
+                }
+              }
+            } catch {
+              // Ignore share fetch errors
+            }
+            return canvas;
+          })
+        );
+        setHistory(canvasesWithShares);
       }
     } catch (err) {
       console.error("Failed to load history:", err);
@@ -260,14 +289,52 @@ export function Sidebar({ onCanvasSelect }: SidebarProps) {
                         </div>
                       ) : (
                         <>
-                          <div
-                            className={`text-xs truncate transition-colors font-medium ${
-                              isActive
-                                ? "text-white"
-                                : "text-gray-400 group-hover:text-gray-200"
-                            }`}
-                          >
-                            {item.name}
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`text-xs truncate transition-colors font-medium flex-1 ${
+                                isActive
+                                  ? "text-white"
+                                  : "text-gray-400 group-hover:text-gray-200"
+                              }`}
+                            >
+                              {item.name}
+                            </div>
+                            {/* Shared canvas indicator with collaborator avatars */}
+                            {item.share && (
+                              <div className="flex items-center -space-x-1.5 flex-shrink-0">
+                                {item.collaborators && item.collaborators.length > 0 ? (
+                                  <>
+                                    {item.collaborators.slice(0, 3).map((collab, idx) => (
+                                      <div
+                                        key={collab.id}
+                                        className="w-4 h-4 rounded-full border border-black overflow-hidden bg-gray-700"
+                                        style={{ zIndex: 3 - idx }}
+                                        title={collab.name || 'Collaborator'}
+                                      >
+                                        {collab.avatar_url ? (
+                                          <img
+                                            src={collab.avatar_url}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-[8px] text-white">
+                                            {(collab.name || '?')[0].toUpperCase()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {item.collaborators.length > 3 && (
+                                      <div className="w-4 h-4 rounded-full border border-black bg-gray-600 flex items-center justify-center text-[8px] text-white">
+                                        +{item.collaborators.length - 3}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <Users size={10} className="text-gray-500" />
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div
                             className={`text-[9px] font-mono transition-colors ${

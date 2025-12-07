@@ -32,7 +32,7 @@ interface PresencePayload {
 }
 
 interface BroadcastPayload {
-  type: "node:update" | "node:create" | "node:delete" | "edge:create" | "edge:delete" | "cursor" | "full_sync";
+  type: "node:update" | "node:create" | "node:delete" | "edge:create" | "edge:delete" | "cursor" | "full_sync" | "title:update";
   userId: string;
   data: any;
 }
@@ -152,9 +152,34 @@ export function useCollaboration({
           }
           break;
         case "node:create":
+          // Incremental add - merge new node into existing nodes
+          if (data.node) {
+            const currentNodes = useCanvasStore.getState().nodes;
+            const exists = currentNodes.some(n => n.id === data.node.id);
+            if (!exists) {
+              setNodes([...currentNodes, data.node]);
+            }
+          }
+          // Also handle edges if provided
+          if (data.edge) {
+            const currentEdges = useCanvasStore.getState().edges;
+            const edgeExists = currentEdges.some(e => e.id === data.edge.id);
+            if (!edgeExists) {
+              setEdges([...currentEdges, data.edge]);
+            }
+          }
+          break;
         case "node:delete":
+          // Incremental delete - remove specific node
+          if (data.nodeId) {
+            const currentNodes = useCanvasStore.getState().nodes;
+            const currentEdges = useCanvasStore.getState().edges;
+            setNodes(currentNodes.filter(n => n.id !== data.nodeId));
+            setEdges(currentEdges.filter(e => e.source !== data.nodeId && e.target !== data.nodeId));
+          }
+          break;
         case "full_sync":
-          // Full sync for create/delete
+          // Full sync only for explicit full sync
           if (data.nodes) {
             setNodes(data.nodes);
           }
@@ -163,9 +188,31 @@ export function useCollaboration({
           }
           break;
         case "edge:create":
-        case "edge:delete":
-          if (data.edges) {
+          // Incremental edge add
+          if (data.edge) {
+            const currentEdges = useCanvasStore.getState().edges;
+            const exists = currentEdges.some(e => e.id === data.edge.id);
+            if (!exists) {
+              setEdges([...currentEdges, data.edge]);
+            }
+          } else if (data.edges) {
+            // Fallback for legacy broadcasts
             setEdges(data.edges);
+          }
+          break;
+        case "edge:delete":
+          if (data.edgeId) {
+            const currentEdges = useCanvasStore.getState().edges;
+            setEdges(currentEdges.filter(e => e.id !== data.edgeId));
+          } else if (data.edges) {
+            setEdges(data.edges);
+          }
+          break;
+        case "title:update":
+          // Update canvas title from collaborator
+          if (data.title) {
+            useCanvasStore.getState().setCanvasName(data.title);
+            window.dispatchEvent(new Event("canvas-list-updated"));
           }
           break;
         case "cursor":

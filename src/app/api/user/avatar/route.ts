@@ -77,9 +77,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'File must be an image' }, { status: 400 });
     }
 
-    // Validate file size (max 500KB for base64)
-    if (file.size > 500 * 1024) {
-      return NextResponse.json({ error: 'Image must be under 500KB' }, { status: 400 });
+    // Validate file size (max 2MB for base64)
+    if (file.size > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Image must be under 2MB' }, { status: 400 });
     }
 
     // Convert to base64 data URL

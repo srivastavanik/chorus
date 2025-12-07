@@ -264,6 +264,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
           if (data.updated) {
             if (data.title) {
               setCanvasName(data.title);
+              // Broadcast title change to collaborators
+              broadcast("title:update", { title: data.title });
             }
             window.dispatchEvent(new Event("canvas-list-updated"));
           }

@@ -48,16 +48,47 @@ export async function GET(req: Request) {
     }
 
     // Get share settings
-    const { data: shares, error: shareError } = await supabase
+    const { data: share, error: shareError } = await supabase
       .from('canvas_shares')
       .select('*')
-      .eq('canvas_id', canvasId);
+      .eq('canvas_id', canvasId)
+      .maybeSingle();
 
     if (shareError) {
       return NextResponse.json({ error: 'Failed to fetch shares' }, { status: 500 });
     }
 
-    return NextResponse.json({ shares: shares || [] });
+    // If shared, get recent collaborators from canvas_versions (users who made versions)
+    let collaborators: { id: string; avatar_url: string | null; name: string }[] = [];
+    if (share) {
+      const { data: versions } = await supabase
+        .from('canvas_versions')
+        .select('created_by')
+        .eq('canvas_id', canvasId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (versions && versions.length > 0) {
+        const uniqueUserIds = [...new Set(versions.map(v => v.created_by).filter(Boolean))];
+        
+        if (uniqueUserIds.length > 0) {
+          const { data: users } = await supabase
+            .from('users')
+            .select('id, username, avatar_url')
+            .in('id', uniqueUserIds);
+          
+          if (users) {
+            collaborators = users.map(u => ({
+              id: u.id,
+              avatar_url: u.avatar_url,
+              name: u.username || 'User',
+            }));
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ share, collaborators });
   } catch (e) {
     console.error('Get shares error:', e);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
