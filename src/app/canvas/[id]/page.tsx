@@ -25,7 +25,6 @@ export default function CanvasPage({ params }: PageProps) {
   // Store Actions
   const setNodes = useCanvasStore(state => state.setNodes);
   const setEdges = useCanvasStore(state => state.setEdges);
-  const setArrows = useCanvasStore(state => state.setArrows);
   const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
   const setCanvasId = useCanvasStore(state => state.setCanvasId);
   const setCanvasName = useCanvasStore(state => state.setCanvasName);
@@ -57,7 +56,6 @@ export default function CanvasPage({ params }: PageProps) {
       // Clear current state first
       setNodes([]);
       setEdges([]);
-      setArrows([]);
       setSelectedNodeId(null);
       setCanvasId(null);
       setCanvasName(null);
@@ -79,11 +77,9 @@ export default function CanvasPage({ params }: PageProps) {
              setCanvasName(target.name);
              const nodes = typeof target.nodes === 'string' ? JSON.parse(target.nodes) : target.nodes;
              const edges = typeof target.edges === 'string' ? JSON.parse(target.edges) : target.edges;
-             const arrows = typeof target.arrows === 'string' ? JSON.parse(target.arrows) : target.arrows;
              
              setNodes(nodes || []);
              setEdges(edges || []);
-             setArrows(arrows || []);
            } else if (!isCancelled) {
              console.error("Canvas not found");
            }
@@ -100,7 +96,7 @@ export default function CanvasPage({ params }: PageProps) {
     return () => {
       isCancelled = true;
     };
-  }, [id, user, loading, setNodes, setEdges, setArrows, setSelectedNodeId, setCanvasId]);
+  }, [id, user, loading, setNodes, setEdges, setSelectedNodeId, setCanvasId]);
 
   // URL Update Effect for new canvases
   // Only redirect if we transitioned from null (cleared state) to a valid ID (saved state)

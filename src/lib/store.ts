@@ -34,14 +34,6 @@ export interface TextNodeData {
   attachedFiles?: string[];
 }
 
-export interface CanvasArrow {
-  id: string;
-  points: { x: number; y: number }[];
-  color: string;
-  strokeWidth: number;
-  createdBy: string;
-}
-
 export interface CanvasState {
   canvasId: string | null; // Track current canvas ID
   canvasName: string | null;
@@ -101,18 +93,6 @@ export interface CanvasState {
   setMergingNodeId: (id: string | null) => void;
   mergeNodes: (targetId: string) => void;
 
-  // Arrow drawing state
-  arrows: CanvasArrow[];
-  isDrawingArrow: boolean;
-  arrowColor: string;
-  selectedArrowId: string | null;
-  addArrow: (arrow: CanvasArrow) => void;
-  deleteArrow: (id: string) => void;
-  setArrows: (arrows: CanvasArrow[]) => void;
-  setIsDrawingArrow: (drawing: boolean) => void;
-  setArrowColor: (color: string) => void;
-  setSelectedArrowId: (id: string | null) => void;
-  // Arrows are currently in-memory only; persistence pending DB column migration.
 }
 
 const NODE_WIDTH = 480;
@@ -158,24 +138,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   saveStatus: "idle",
   mergingNodeId: null,
   
-  // Arrow state
-  arrows: [],
-  isDrawingArrow: false,
-  arrowColor: "#ef4444", // red-500
-  selectedArrowId: null,
-
   setUser: (user) => set({ user }),
   setCanvasId: (id) => set({ canvasId: id }),
   setCanvasName: (name) => set({ canvasName: name }),
   setMergingNodeId: (id) => set({ mergingNodeId: id }),
-  
-  // Arrow actions
-  addArrow: (arrow) => set({ arrows: [...get().arrows, arrow] }),
-  deleteArrow: (id) => set({ arrows: get().arrows.filter(a => a.id !== id) }),
-  setArrows: (arrows) => set({ arrows }),
-  setIsDrawingArrow: (drawing) => set({ isDrawingArrow: drawing }),
-  setArrowColor: (color) => set({ arrowColor: color }),
-  setSelectedArrowId: (id) => set({ selectedArrowId: id }),
 
   onNodesChange: (changes) => {
     set({
@@ -654,7 +620,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCanvas: async (name) => {
-    const { nodes, edges, /* arrows, */ canvasId, canvasName } = get();
+  const { nodes, edges, canvasId, canvasName } = get();
     set({ saveStatus: "saving" });
     try {
       // Generate ID if not present to ensure upsert works
@@ -664,8 +630,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         set({ canvasId: id });
       }
 
-      // Note: arrows are kept in-memory and broadcast in real-time.
-      // Persisting arrows requires a DB column; omit for now to avoid 500s.
       const payload: any = { id, nodes, edges };
       // Prefer passed name, then state name, then undefined (which lets backend decide or keep existing)
       if (name) {

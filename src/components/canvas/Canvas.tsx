@@ -27,7 +27,7 @@ import { Sidebar } from "./Sidebar";
 import { AutosaveStatus } from "./AutosaveStatus";
 import { CollaborationProvider, useCollaborationContext } from "./CollaborationProvider";
 import { useAutoVersioning } from "@/hooks/useAutoVersioning";
-import { ArrowLayer, simplifyPath } from "./ArrowLayer";
+// Freeform arrows removed
 
 const nodeTypes = {
   text: TextNode,
@@ -84,12 +84,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   const canvasId = useCanvasStore((state) => state.canvasId);
   
   // Arrow drawing state
-  const isDrawingArrow = useCanvasStore((state) => state.isDrawingArrow);
-  const arrowColor = useCanvasStore((state) => state.arrowColor);
-  const selectedArrowId = useCanvasStore((state) => state.selectedArrowId);
-  const addArrow = useCanvasStore((state) => state.addArrow);
-  const deleteArrow = useCanvasStore((state) => state.deleteArrow);
-  const setSelectedArrowId = useCanvasStore((state) => state.setSelectedArrowId);
+  // Arrows removed
   
   // Auto-version every 5 minutes when changes detected
   useAutoVersioning(canvasId, !!user);
@@ -97,8 +92,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [drawingPoints, setDrawingPoints] = useState<{ x: number; y: number }[]>([]);
-  const [isCurrentlyDrawing, setIsCurrentlyDrawing] = useState(false);
+  // Arrows removed
   const { screenToFlowPosition, setViewport } = useReactFlow();
   const connectingNodeRef = useRef<{
     nodeId: string;
@@ -348,7 +342,7 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
     [screenToFlowPosition, addFileNode, broadcast]
   );
 
-  // Mouse move for cursor tracking and arrow drawing
+  // Mouse move for cursor tracking
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       const position = screenToFlowPosition({
@@ -356,95 +350,19 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
         y: event.clientY,
       });
       updateCursor(position);
-      
-      // Add point while drawing
-      if (isCurrentlyDrawing && isDrawingArrow) {
-        setDrawingPoints(prev => [...prev, position]);
-      }
     },
-    [screenToFlowPosition, updateCursor, isCurrentlyDrawing, isDrawingArrow]
+    [screenToFlowPosition, updateCursor]
   );
-
-  // Arrow drawing mouse handlers
-  const handleArrowDrawStart = useCallback(
-    (event: React.MouseEvent) => {
-      if (!isDrawingArrow) return;
-      
-      event.preventDefault();
-      const position = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-      setDrawingPoints([position]);
-      setIsCurrentlyDrawing(true);
-    },
-    [isDrawingArrow, screenToFlowPosition]
-  );
-
-  const handleArrowDrawEnd = useCallback(() => {
-    if (!isCurrentlyDrawing || drawingPoints.length < 2) {
-      setDrawingPoints([]);
-      setIsCurrentlyDrawing(false);
-      return;
-    }
-
-    // Simplify the path and create arrow
-    const simplifiedPoints = simplifyPath(drawingPoints, 5);
-    
-    if (simplifiedPoints.length >= 2) {
-      const newArrow = {
-        id: crypto.randomUUID(),
-        points: simplifiedPoints,
-        color: arrowColor,
-        strokeWidth: 3,
-        createdBy: user?.id || "anonymous",
-      };
-      
-      addArrow(newArrow);
-      
-      // Broadcast new arrow
-      broadcast("arrow:create", { arrow: newArrow });
-    }
-    
-    setDrawingPoints([]);
-    setIsCurrentlyDrawing(false);
-  }, [isCurrentlyDrawing, drawingPoints, arrowColor, user, addArrow, broadcast]);
-
-  // Handle delete key for arrows
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedArrowId) {
-          deleteArrow(selectedArrowId);
-          broadcast("arrow:delete", { arrowId: selectedArrowId });
-          setSelectedArrowId(null);
-        }
-      }
-      // Press Escape to cancel drawing
-      if (e.key === "Escape") {
-        if (isCurrentlyDrawing) {
-          setDrawingPoints([]);
-          setIsCurrentlyDrawing(false);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedArrowId, deleteArrow, setSelectedArrowId, broadcast, isCurrentlyDrawing]);
 
   return (
     <div
       className={`w-full h-full bg-black relative transition-opacity duration-300 ${
         isReady ? "opacity-100" : "opacity-0"
-      } ${isDrawingArrow ? "cursor-crosshair" : ""}`}
+      }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onMouseMove={handleMouseMove}
-      onMouseDown={handleArrowDrawStart}
-      onMouseUp={handleArrowDrawEnd}
-      onMouseLeave={handleArrowDrawEnd}
     >
       {/* Drop zone overlay */}
       {isDraggingFile && (
@@ -523,12 +441,6 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
           style={{ zIndex: 50 }}
         />
         <Toolbar />
-        {/* Arrow drawing layer (inside ReactFlow to track transforms) */}
-        <ArrowLayer
-          currentDrawingPoints={isCurrentlyDrawing ? drawingPoints : undefined}
-          drawingColor={arrowColor}
-          drawingStrokeWidth={3}
-        />
         
         {/* Collaborator cursors */}
         {collaborators.map((collab) =>
@@ -543,13 +455,6 @@ function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange, onMyColorCh
           ) : null
         )}
       </ReactFlow>
-
-      {/* Arrow drawing layer */}
-      <ArrowLayer
-        currentDrawingPoints={isCurrentlyDrawing ? drawingPoints : undefined}
-        drawingColor={arrowColor}
-        drawingStrokeWidth={3}
-      />
 
       <AutosaveStatus />
       <Sidebar onCanvasSelect={onCanvasSelect} />

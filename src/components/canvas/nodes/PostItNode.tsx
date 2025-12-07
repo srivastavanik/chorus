@@ -323,8 +323,8 @@ export function PostItNode({ id, data, selected }: NodeProps) {
             className="w-full h-full resize-none bg-transparent border-none outline-none text-sm leading-relaxed nodrag nopan"
             style={{ 
               color: textColor,
-              fontFamily: "'Caveat', cursive, sans-serif",
-              fontSize: "16px",
+              fontFamily: "'Inter', 'SF Pro Text', 'Segoe UI', system-ui, -apple-system, sans-serif",
+              fontSize: "15px",
             }}
           />
         </div>

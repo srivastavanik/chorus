@@ -32,7 +32,7 @@ interface PresencePayload {
 }
 
 interface BroadcastPayload {
-  type: "node:update" | "node:create" | "node:delete" | "edge:create" | "edge:delete" | "cursor" | "full_sync" | "title:update" | "arrow:create" | "arrow:delete";
+  type: "node:update" | "node:create" | "node:delete" | "edge:create" | "edge:delete" | "cursor" | "full_sync" | "title:update";
   userId: string;
   data: any;
 }
@@ -66,8 +66,6 @@ export function useCollaboration({
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const setNodes = useCanvasStore((state) => state.setNodes);
   const setEdges = useCanvasStore((state) => state.setEdges);
-  const addArrow = useCanvasStore((state) => state.addArrow);
-  const deleteArrow = useCanvasStore((state) => state.deleteArrow);
   const nodes = useCanvasStore((state) => state.nodes);
   const edges = useCanvasStore((state) => state.edges);
 
@@ -219,22 +217,6 @@ export function useCollaboration({
           if (data.title) {
             useCanvasStore.getState().setCanvasName(data.title);
             window.dispatchEvent(new Event("canvas-list-updated"));
-          }
-          break;
-        case "arrow:create":
-          // Add arrow from collaborator
-          if (data.arrow) {
-            const currentArrows = useCanvasStore.getState().arrows;
-            const exists = currentArrows.some(a => a.id === data.arrow.id);
-            if (!exists) {
-              addArrow(data.arrow);
-            }
-          }
-          break;
-        case "arrow:delete":
-          // Delete arrow from collaborator
-          if (data.arrowId) {
-            deleteArrow(data.arrowId);
           }
           break;
         case "cursor":
