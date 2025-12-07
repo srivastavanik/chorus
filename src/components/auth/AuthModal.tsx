@@ -79,39 +79,39 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {!isLogin && (
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Full Name</label>
+              <div className="space-y-2 group">
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide group-focus-within:text-white transition-colors">Full Name</label>
                 <Input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
-                  className="bg-transparent border-b border-gray-800 focus:border-white rounded-none px-0 h-12 text-white placeholder:text-gray-700 transition-colors"
+                  className="bg-transparent border-b border-gray-800 focus:border-white rounded-none px-0 h-12 text-white placeholder:text-gray-800 transition-colors focus:ring-0 ring-0 outline-none"
                   required
                 />
               </div>
             )}
             
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email Address</label>
+            <div className="space-y-2 group">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide group-focus-within:text-white transition-colors">Email Address</label>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="bg-transparent border-b border-gray-800 focus:border-white rounded-none px-0 h-12 text-white placeholder:text-gray-700 transition-colors"
+                className="bg-transparent border-b border-gray-800 focus:border-white rounded-none px-0 h-12 text-white placeholder:text-gray-800 transition-colors focus:ring-0 ring-0 outline-none"
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Password</label>
+            <div className="space-y-2 group">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide group-focus-within:text-white transition-colors">Password</label>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="bg-transparent border-b border-gray-800 focus:border-white rounded-none px-0 h-12 text-white placeholder:text-gray-700 transition-colors"
+                className="bg-transparent border-b border-gray-800 focus:border-white rounded-none px-0 h-12 text-white placeholder:text-gray-800 transition-colors focus:ring-0 ring-0 outline-none"
                 required
                 minLength={6}
               />
@@ -125,7 +125,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
 
             <Button 
               type="submit" 
-              className="w-full h-14 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-medium tracking-wide uppercase transition-all mt-8"
+              className="w-full h-14 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-medium tracking-wide uppercase transition-all mt-8 shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.5)]"
               disabled={isLoading}
             >
               {isLoading ? (

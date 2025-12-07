@@ -11,7 +11,21 @@ export function LandingPage() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black text-white font-sans selection:bg-white/20">
-      <EtherealBackground />
+      {/* Video Background */}
+      <div className="absolute inset-0 w-full h-full z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover opacity-60"
+        >
+          <source src="/background.mp4" type="video/mp4" />
+        </video>
+        {/* Vignette & Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.6)_100%)]" />
+      </div>
       
       {/* Navbar */}
       <nav className="absolute top-0 left-0 right-0 z-20 px-6 py-6 md:px-12 flex justify-between items-center max-w-[1600px] mx-auto w-full">
@@ -46,7 +60,7 @@ export function LandingPage() {
           {/* Glow effect behind text */}
           <div className="absolute -inset-20 bg-gradient-to-r from-white/5 to-white/10 blur-[100px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
           
-          <h1 className="text-[120px] md:text-[240px] font-bold tracking-tighter leading-none text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50 select-none animate-in fade-in zoom-in-95 duration-1000">
+          <h1 className="text-[120px] md:text-[240px] font-bold tracking-tighter leading-none text-white select-none animate-in fade-in zoom-in-95 duration-1000 drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]">
             Chorus
           </h1>
 

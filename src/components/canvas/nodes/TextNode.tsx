@@ -634,10 +634,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       )}
 
       {/* Input Area */}
-<<<<<<< HEAD
-      <div className={`p-3 border-t border-gray-700 bg-[#1a1a1a] nopan ${!isReasoningSectionVisible ? 'rounded-b-[15px]' : ''}`}>
-=======
-      <div className="p-3 border-t border-gray-700 bg-[#1a1a1a] nopan">
+      <div className={`p-3 border-t border-gray-700 bg-[#1a1a1a] nopan ${!isReasoningSectionVisible ? 'rounded-b-xl' : ''}`}>
         {attachedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {attachedFiles.map((file, i) => (
@@ -650,7 +647,6 @@ export function TextNode({ id, data, selected }: NodeProps) {
             ))}
           </div>
         )}
->>>>>>> b5db575 (Redesign Landing/Auth UI to match xAI aesthetic and integrate features)
         <div className="flex gap-2">
           <Input 
             value={prompt}
@@ -673,7 +669,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
 
       {/* Reasoning Section - Below input */}
       {isReasoningSectionVisible && (
-        <div className="border-t border-gray-700 bg-[#141414] nopan nodrag rounded-b-[15px]">
+        <div className="border-t border-gray-700 bg-[#141414] nopan nodrag rounded-b-xl">
           <button  
             onClick={() => setShowReasoning(!showReasoning)}
             className="w-full px-3 py-2 flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors"
