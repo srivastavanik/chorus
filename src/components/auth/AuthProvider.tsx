@@ -3,10 +3,11 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useCanvasStore } from '@/lib/store';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name?: string;
+  avatar_url?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +16,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<{ error?: string }>;
   signup: (email: string, pass: string, name?: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,9 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json();
       if (data.error) return { error: data.error };
-      // Auto login after signup? Usually need separate login call or handle session in signup
-      // The signup route currently just creates user. Let's login automatically or ask user to login.
-      // For now, let's assume they need to login.
       return {};
     } catch (e) {
       return { error: 'Signup failed' };
@@ -85,8 +84,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStoreUser(null);
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...updates };
+      setUserState(updatedUser);
+      setStoreUser(updatedUser);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -97,4 +104,3 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
-

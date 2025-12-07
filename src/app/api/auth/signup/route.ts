@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/lib/auth-utils';
+import { generateAvatarUrl } from '@/lib/collaboration';
 
 export async function POST(req: Request) {
   try {
@@ -22,10 +23,11 @@ export async function POST(req: Request) {
     }
 
     const password_hash = await hashPassword(password);
+    const avatar_url = generateAvatarUrl(name || email);
 
     const { data: user, error } = await supabase
       .from('users')
-      .insert({ email, password_hash, name })
+      .insert({ email, password_hash, name, avatar_url })
       .select()
       .single();
 
@@ -40,4 +42,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
-

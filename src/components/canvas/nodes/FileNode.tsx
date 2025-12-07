@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { FileText, Image as ImageIcon, FileCode, File, Download, Eye, X } from 'lucide-react';
+import { useCollaborationContext } from '../CollaborationProvider';
 
 type FileNodeData = {
   label?: string;
@@ -29,7 +30,7 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export function FileNode({ data, selected }: NodeProps) {
+export function FileNode({ id, data, selected }: NodeProps) {
   const [showPreview, setShowPreview] = useState(false);
   const fileNodeData = data as FileNodeData | undefined;
   const fileType = fileNodeData?.fileType ?? undefined;
@@ -43,6 +44,10 @@ export function FileNode({ data, selected }: NodeProps) {
     (fileType.includes('text') || fileType.includes('json'));
   const isPDF = typeof fileType === 'string' && fileType.includes('pdf');
 
+  // Collaboration - get border color if another user is active on this node
+  const { getNodeBorderColor } = useCollaborationContext();
+  const collaboratorColor = getNodeBorderColor(id);
+
   const handleDownload = () => {
     if (typeof fileData === 'string' && fileData.length > 0) {
       const link = document.createElement('a');
@@ -53,7 +58,13 @@ export function FileNode({ data, selected }: NodeProps) {
   };
 
   return (
-    <div className={`bg-[#0a0a0a] border rounded-2xl w-[280px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-800'}`}>
+    <div 
+      className={`bg-[#0a0a0a] border-2 rounded-2xl w-[280px] flex flex-col shadow-lg transition-all duration-200 ${collaboratorColor ? '' : selected ? 'border-white' : 'border-gray-800'}`}
+      style={collaboratorColor ? {
+        borderColor: collaboratorColor,
+        boxShadow: `0 0 20px ${collaboratorColor}40, 0 0 40px ${collaboratorColor}20`,
+      } : undefined}
+    >
       {/* Header */}
       <div className="flex items-center p-3 gap-3 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-2xl">
         <div className="bg-gray-800 p-2 rounded-lg text-gray-400">

@@ -32,6 +32,7 @@ import {
 import { useCanvasStore, ChatMessage } from "@/lib/store";
 import { getAncestorContext } from "@/lib/context";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useCollaborationContext } from "../CollaborationProvider";
 
 interface StreamEvent {
   type: "content" | "reasoning" | "status" | "done";
@@ -523,17 +524,25 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const isReasoningSectionVisible =
     modelSupportsReasoning && (reasoning || isLoading);
 
+  // Collaboration - get border color if another user is active on this node
+  const { getNodeBorderColor } = useCollaborationContext();
+  const collaboratorColor = getNodeBorderColor(id);
+
   return (
     <div
       className={`
-        bg-[#0a0a0a] border rounded-xl flex flex-col shadow-lg transition-all duration-200
+        bg-[#0a0a0a] border-2 rounded-xl flex flex-col shadow-lg transition-all duration-200
         ${isLoading ? "border-gray-500" : ""}
-        ${selected ? "border-white" : "border-gray-800"}
+        ${collaboratorColor ? "" : selected ? "border-white" : "border-gray-800"}
       `}
       style={{
         width: nodeWidth,
         height: nodeHeight,
         minHeight: isExpanded ? 600 : "auto",
+        ...(collaboratorColor ? {
+          borderColor: collaboratorColor,
+          boxShadow: `0 0 20px ${collaboratorColor}40, 0 0 40px ${collaboratorColor}20`,
+        } : {}),
       }}
       onDoubleClick={(e) => {
         // Only trigger on header double click or check target

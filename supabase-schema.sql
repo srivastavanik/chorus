@@ -74,3 +74,53 @@ ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canvases DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sessions DISABLE ROW LEVEL SECURITY;
+
+-- ========== COLLABORATION FEATURES ==========
+
+-- 9. Add avatar_url to users table
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- 10. Canvas sharing permissions
+CREATE TABLE IF NOT EXISTS public.canvas_shares (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  canvas_id UUID REFERENCES public.canvases(id) ON DELETE CASCADE NOT NULL,
+  share_token TEXT UNIQUE NOT NULL,
+  permission TEXT NOT NULL CHECK (permission IN ('view', 'edit')),
+  is_public BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. Canvas version history
+CREATE TABLE IF NOT EXISTS public.canvas_versions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  canvas_id UUID REFERENCES public.canvases(id) ON DELETE CASCADE NOT NULL,
+  version_number INTEGER NOT NULL,
+  nodes JSONB NOT NULL,
+  edges JSONB NOT NULL,
+  created_by UUID REFERENCES public.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(canvas_id, version_number)
+);
+
+-- 12. Active collaborators (for session tracking)
+CREATE TABLE IF NOT EXISTS public.canvas_collaborators (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  canvas_id UUID REFERENCES public.canvases(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  assigned_color TEXT NOT NULL,
+  last_seen TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(canvas_id, user_id)
+);
+
+-- 13. Indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_canvas_shares_canvas_id ON public.canvas_shares(canvas_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_shares_token ON public.canvas_shares(share_token);
+CREATE INDEX IF NOT EXISTS idx_canvas_versions_canvas_id ON public.canvas_versions(canvas_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_versions_created_at ON public.canvas_versions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_canvas_collaborators_canvas_id ON public.canvas_collaborators(canvas_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_collaborators_user_id ON public.canvas_collaborators(user_id);
+
+-- 14. Disable RLS for new tables
+ALTER TABLE public.canvas_shares DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.canvas_versions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.canvas_collaborators DISABLE ROW LEVEL SECURITY;

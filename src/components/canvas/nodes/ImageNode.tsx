@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store';
 import { useClickOutside } from '@/hooks/useClickOutside';
+import { useCollaborationContext } from '../CollaborationProvider';
 
 const MODELS = [
   { id: 'grok-imagine-v0p9', name: 'Grok Imagine v0.9', description: 'Recommended' },
@@ -278,8 +279,18 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     }
   };
 
+  // Collaboration - get border color if another user is active on this node
+  const { getNodeBorderColor } = useCollaborationContext();
+  const collaboratorColor = getNodeBorderColor(id);
+
   return (
-    <div className={`bg-[#0a0a0a] border rounded-2xl w-[400px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-800'}`}>
+    <div 
+      className={`bg-[#0a0a0a] border-2 rounded-2xl w-[400px] flex flex-col shadow-lg transition-all duration-200 ${collaboratorColor ? '' : selected ? 'border-white' : 'border-gray-800'}`}
+      style={collaboratorColor ? {
+        borderColor: collaboratorColor,
+        boxShadow: `0 0 20px ${collaboratorColor}40, 0 0 40px ${collaboratorColor}20`,
+      } : undefined}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-2xl">
         <div className="flex items-center gap-2 text-gray-400">

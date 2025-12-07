@@ -17,6 +17,7 @@ export default function CanvasPage({ params }: PageProps) {
   const { id } = use(params);
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [collaborators, setCollaborators] = useState<any[]>([]);
 
   // Store Actions
   const setNodes = useCanvasStore(state => state.setNodes);
@@ -135,7 +136,7 @@ export default function CanvasPage({ params }: PageProps) {
 
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-black text-white">
-      <NavBar onHomeClick={handleHomeClick} />
+      <NavBar onHomeClick={handleHomeClick} collaborators={collaborators} />
       
       <main className="flex-1 overflow-hidden relative">
         {isLoadingCanvas ? (
@@ -143,7 +144,10 @@ export default function CanvasPage({ params }: PageProps) {
              <div className="animate-pulse text-gray-500">Loading Canvas...</div>
            </div>
         ) : (
-           <Canvas onCanvasSelect={handleCanvasSelect} />
+           <Canvas 
+             onCanvasSelect={handleCanvasSelect} 
+             onCollaboratorsChange={setCollaborators}
+           />
         )}
       </main>
     </div>

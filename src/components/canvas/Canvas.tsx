@@ -25,6 +25,8 @@ import { Toolbar } from "./Toolbar";
 import { AddBlockMenu } from "./AddBlockMenu";
 import { Sidebar } from "./Sidebar";
 import { AutosaveStatus } from "./AutosaveStatus";
+import { CollaborationProvider, useCollaborationContext } from "./CollaborationProvider";
+import { useAutoVersioning } from "@/hooks/useAutoVersioning";
 
 const nodeTypes = {
   text: TextNode,
@@ -37,11 +39,12 @@ const edgeTypes = {
   bezier: BezierEdge,
 };
 
-function CanvasContent({
-  onCanvasSelect,
-}: {
+interface CanvasContentProps {
   onCanvasSelect?: (id: string | null) => void;
-}) {
+  onCollaboratorsChange?: (collaborators: any[]) => void;
+}
+
+function CanvasContentInner({ onCanvasSelect, onCollaboratorsChange }: CanvasContentProps) {
   const {
     nodes,
     edges,
@@ -69,6 +72,15 @@ function CanvasContent({
       user: state.user,
     }))
   );
+
+  const { collaborators, broadcast, setActiveNode, updateCursor } = useCollaborationContext();
+
+  // Get canvas ID for auto-versioning
+  const canvasId = useCanvasStore((state) => state.canvasId);
+  
+  // Auto-version every 5 minutes when changes detected
+  useAutoVersioning(canvasId, !!user);
+
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -80,6 +92,13 @@ function CanvasContent({
 
   // Ref to track if we've initialized the default node
   const hasInitializedDefaultNode = useRef(false);
+
+  // Notify parent of collaborator changes
+  useEffect(() => {
+    if (onCollaboratorsChange) {
+      onCollaboratorsChange(collaborators);
+    }
+  }, [collaborators, onCollaboratorsChange]);
 
   // Auto-save effect
   useEffect(() => {
@@ -107,6 +126,39 @@ function CanvasContent({
     }
   }, [isReady, addNode, nodes.length]);
 
+  // Broadcast node changes
+  const handleNodesChange: typeof onNodesChange = useCallback(
+    (changes) => {
+      onNodesChange(changes);
+      
+      // Broadcast significant changes
+      changes.forEach((change) => {
+        if (change.type === "position" && "position" in change && change.position) {
+          broadcast("node:update", {
+            nodeId: change.id,
+            updates: { position: change.position },
+          });
+        }
+      });
+    },
+    [onNodesChange, broadcast]
+  );
+
+  // Broadcast edge changes
+  const handleEdgesChange: typeof onEdgesChange = useCallback(
+    (changes) => {
+      onEdgesChange(changes);
+      
+      const store = useCanvasStore.getState();
+      changes.forEach((change) => {
+        if (change.type === "add" || change.type === "remove") {
+          broadcast("edge:create", { edges: store.edges });
+        }
+      });
+    },
+    [onEdgesChange, broadcast]
+  );
+
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
       event.preventDefault();
@@ -118,21 +170,27 @@ function CanvasContent({
   const onPaneClick = useCallback(() => {
     setMenu(null);
     setSelectedNodeId(null);
-  }, [setSelectedNodeId]);
+    setActiveNode(null);
+  }, [setSelectedNodeId, setActiveNode]);
 
   const handleAddNode = (type: NodeType) => {
     if (menu) {
       const position = screenToFlowPosition({ x: menu.x, y: menu.y });
       addNode(type, position);
       setMenu(null);
+      
+      // Broadcast node creation
+      const store = useCanvasStore.getState();
+      broadcast("node:create", { nodes: store.nodes });
     }
   };
 
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       setSelectedNodeId(node.id);
+      setActiveNode(node.id);
     },
-    [setSelectedNodeId]
+    [setSelectedNodeId, setActiveNode]
   );
 
   // Track when user starts dragging from a handle
@@ -171,11 +229,17 @@ function CanvasContent({
           handlePosition,
           dropPosition
         );
+        
+        // Broadcast node creation
+        setTimeout(() => {
+          const store = useCanvasStore.getState();
+          broadcast("node:create", { nodes: store.nodes, edges: store.edges });
+        }, 0);
       }
 
       connectingNodeRef.current = null;
     },
-    [screenToFlowPosition, addConnectedNode]
+    [screenToFlowPosition, addConnectedNode, broadcast]
   );
 
   // File drag and drop handlers
@@ -206,8 +270,24 @@ function CanvasContent({
       for (const file of files) {
         await addFileNode(file, position);
       }
+      
+      // Broadcast node creation
+      const store = useCanvasStore.getState();
+      broadcast("node:create", { nodes: store.nodes });
     },
-    [screenToFlowPosition, addFileNode]
+    [screenToFlowPosition, addFileNode, broadcast]
+  );
+
+  // Mouse move for cursor tracking
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      updateCursor(position);
+    },
+    [screenToFlowPosition, updateCursor]
   );
 
   return (
@@ -218,6 +298,7 @@ function CanvasContent({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onMouseMove={handleMouseMove}
     >
       {/* Drop zone overlay */}
       {isDraggingFile && (
@@ -234,8 +315,8 @@ function CanvasContent({
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
@@ -296,6 +377,19 @@ function CanvasContent({
           style={{ zIndex: 50 }}
         />
         <Toolbar />
+        
+        {/* Collaborator cursors */}
+        {collaborators.map((collab) =>
+          collab.cursor ? (
+            <CollaboratorCursor
+              key={collab.id}
+              name={collab.name}
+              color={collab.color}
+              x={collab.cursor.x}
+              y={collab.cursor.y}
+            />
+          ) : null
+        )}
       </ReactFlow>
 
       <AutosaveStatus />
@@ -312,14 +406,63 @@ function CanvasContent({
   );
 }
 
+// Collaborator cursor component
+function CollaboratorCursor({
+  name,
+  color,
+  x,
+  y,
+}: {
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+}) {
+  return (
+    <div
+      className="absolute pointer-events-none z-[1000] transition-all duration-75"
+      style={{
+        transform: `translate(${x}px, ${y}px)`,
+      }}
+    >
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill={color}
+        className="drop-shadow-lg"
+      >
+        <path d="M5.65376 12.456L1.5 3.2C1.5 3.2 12.9 8.9 21.5 3.2L5.65376 12.456Z" />
+        <path d="M5.65376 12.456L9 20.9L12.3462 12.456H5.65376Z" />
+      </svg>
+      <span
+        className="absolute left-4 top-4 px-2 py-0.5 text-[10px] text-white rounded-full whitespace-nowrap"
+        style={{ backgroundColor: color }}
+      >
+        {name}
+      </span>
+    </div>
+  );
+}
+
+function CanvasContent(props: CanvasContentProps) {
+  return (
+    <CollaborationProvider>
+      <CanvasContentInner {...props} />
+    </CollaborationProvider>
+  );
+}
+
 export default function Canvas({
   onCanvasSelect,
+  onCollaboratorsChange,
 }: {
   onCanvasSelect?: (id: string | null) => void;
+  onCollaboratorsChange?: (collaborators: any[]) => void;
 }) {
   return (
     <ReactFlowProvider>
-      <CanvasContent onCanvasSelect={onCanvasSelect} />
+      <CanvasContent onCanvasSelect={onCanvasSelect} onCollaboratorsChange={onCollaboratorsChange} />
     </ReactFlowProvider>
   );
 }

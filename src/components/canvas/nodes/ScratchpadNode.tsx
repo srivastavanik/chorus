@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useCanvasStore } from "@/lib/store";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useCollaborationContext } from "../CollaborationProvider";
 
 export function ScratchpadNode({ id, data, selected }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -308,6 +309,10 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     }
   };
 
+  // Collaboration - get border color if another user is active on this node
+  const { getNodeBorderColor } = useCollaborationContext();
+  const collaboratorColor = getNodeBorderColor(id);
+
   return (
     <>
       <NodeResizer
@@ -322,10 +327,17 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
         }}
       />
       <div
-        className={`bg-white border rounded-xl flex flex-col shadow-lg overflow-hidden ${
-          selected ? "border-gray-400" : "border-gray-200"
+        className={`bg-white border-2 rounded-xl flex flex-col shadow-lg overflow-hidden transition-all duration-200 ${
+          collaboratorColor ? '' : selected ? "border-gray-400" : "border-gray-200"
         }`}
-        style={{ width: "100%", height: "100%" }}
+        style={{ 
+          width: "100%", 
+          height: "100%",
+          ...(collaboratorColor ? {
+            borderColor: collaboratorColor,
+            boxShadow: `0 0 20px ${collaboratorColor}40, 0 0 40px ${collaboratorColor}20`,
+          } : {}),
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 cursor-grab active:cursor-grabbing drag-handle shrink-0">
