@@ -7,6 +7,7 @@ import { LandingPage } from '@/components/landing/LandingPage';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { NavBar } from '@/components/layout/NavBar';
 import { useCanvasStore } from '@/lib/store';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 // View state type
 type View = 'dashboard' | 'canvas';
@@ -14,6 +15,8 @@ type View = 'dashboard' | 'canvas';
 function AppContent() {
   const { user, loading } = useAuth();
   const [view, setView] = useState<View>('dashboard'); // Default to dashboard
+  const searchParams = useSearchParams();
+  const router = useRouter();
   
   // Store Actions
   const setNodes = useCanvasStore(state => state.setNodes);
@@ -21,18 +24,16 @@ function AppContent() {
   const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
   const setCanvasId = useCanvasStore(state => state.setCanvasId);
 
-  // If user is not logged in, show landing page
-  if (!loading && !user) {
-    return <LandingPage />;
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center w-full h-full bg-black text-white">
-        <div className="animate-pulse">Loading...</div>
-      </div>
-    );
-  }
+  // Handle initial load with canvasId query param
+  // This MUST be before the conditional returns to comply with Rules of Hooks
+  useEffect(() => {
+    if (user && !loading) {
+        const canvasId = searchParams.get('canvasId');
+        if (canvasId) {
+            handleOpenCanvas(canvasId);
+        }
+    }
+  }, [user, loading]); 
 
   const handleOpenCanvas = async (id: string | null) => {
     // Clear current state first to prevent bleed-over
@@ -43,6 +44,9 @@ function AppContent() {
 
     if (id) {
       try {
+        // Update URL
+        router.push(`/?canvasId=${id}`, { scroll: false });
+
         // Ideally we should have a GET /api/canvas/[id] endpoint
         // But currently we list all. Let's optimize by finding in list or implementing GET by ID.
         // The current GET /api/canvas returns all.
@@ -66,15 +70,34 @@ function AppContent() {
         console.error("Failed to load canvas", e);
       }
     } else {
-      // New Canvas: State is already cleared, canvasId is null (will create new on save)
+      // New Canvas
+      router.push('/', { scroll: false });
     }
     
     setView('canvas');
   };
 
+  const handleHomeClick = () => {
+    router.push('/');
+    setView('dashboard');
+  };
+
+  // If user is not logged in, show landing page
+  if (!loading && !user) {
+    return <LandingPage />;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center w-screen h-screen bg-black text-white">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full w-full bg-black text-white">
-      <NavBar onHomeClick={() => setView('dashboard')} />
+    <div className="flex flex-col w-screen h-screen overflow-hidden bg-black text-white">
+      <NavBar onHomeClick={handleHomeClick} />
       
       <main className="flex-1 overflow-hidden relative">
         {view === 'dashboard' ? (
@@ -88,9 +111,5 @@ function AppContent() {
 }
 
 export default function Home() {
-  return (
-    <main className="w-screen h-screen overflow-hidden bg-black text-white">
-      <AppContent />
-    </main>
-  );
+  return <AppContent />;
 }

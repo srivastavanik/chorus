@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 
@@ -13,8 +13,13 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "LLM Canvas",
+  title: "PULSE / OS",
   description: "A node-based AI workspace",
 };
 
@@ -26,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${sans.variable} ${mono.variable} antialiased bg-black text-white overflow-hidden`}
+        className={`${sans.variable} ${mono.variable} ${spaceGrotesk.variable} antialiased bg-black text-white overflow-hidden font-sans`}
         suppressHydrationWarning
       >
         <AuthProvider>

@@ -29,12 +29,12 @@ export function Toolbar() {
   };
 
   return (
-    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-gray-900/95 border border-gray-700 p-2 rounded-xl shadow-2xl backdrop-blur-sm z-50">
-      <div className="relative flex items-center gap-1 pr-2 border-r border-gray-700">
+    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#0a0a0a]/90 border border-white/10 p-1.5 rounded-full shadow-2xl backdrop-blur-xl z-50">
+      <div className="relative flex items-center gap-1 pr-2 border-r border-white/10">
         {isZoomMenuOpen && (
           <div 
             ref={zoomMenuRef}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-24 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden py-1"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-24 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 backdrop-blur-md"
           >
             {ZOOM_PRESETS.map((preset) => (
               <button
@@ -43,8 +43,8 @@ export function Toolbar() {
                   zoomTo(preset, { duration: 300 });
                   setIsZoomMenuOpen(false);
                 }}
-                className={`w-full px-3 py-1.5 text-sm text-left hover:bg-gray-800 transition-colors ${
-                  Math.round(zoom * 100) === Math.round(preset * 100) ? 'text-white bg-gray-800' : 'text-gray-400'
+                className={`w-full px-3 py-1.5 text-xs font-mono text-left hover:bg-white/5 transition-colors ${
+                  Math.round(zoom * 100) === Math.round(preset * 100) ? 'text-white bg-white/5' : 'text-gray-500'
                 }`}
               >
                 {Math.round(preset * 100)}%
@@ -55,43 +55,43 @@ export function Toolbar() {
 
         <button 
           onClick={() => zoomOut()}
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-full transition-colors"
           title="Zoom out"
         >
-          <ZoomOut size={18} />
+          <ZoomOut size={16} />
         </button>
         <button
           onClick={() => setIsZoomMenuOpen(!isZoomMenuOpen)}
-          className="text-xs text-gray-400 min-w-[3rem] text-center select-none font-medium hover:text-white transition-colors py-1 rounded hover:bg-gray-800"
+          className="text-[10px] font-mono text-gray-400 min-w-[3rem] text-center select-none hover:text-white transition-colors py-1 rounded hover:bg-white/5"
         >
           {Math.round(zoom * 100)}%
         </button>
         <button 
           onClick={() => zoomIn()}
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-full transition-colors"
           title="Zoom in"
         >
-          <ZoomIn size={18} />
+          <ZoomIn size={16} />
         </button>
       </div>
       
       <Button 
         variant="primary" 
         size="sm" 
-        className="gap-2 px-4 whitespace-nowrap"
+        className="gap-2 px-4 whitespace-nowrap rounded-full bg-white text-black hover:bg-gray-200 border-none font-mono uppercase text-[10px] tracking-wider h-8"
         onClick={handleAddNode}
         title="Add a new text node"
       >
-        <Plus size={16} />
+        <Plus size={14} />
         Add Node
       </Button>
       
-      <div className="flex items-center gap-1 pl-2 border-l border-gray-700">
+      <div className="flex items-center gap-1 pl-2 border-l border-white/10">
         <button 
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-full transition-colors"
           title="Share canvas"
         >
-          <Share2 size={18} />
+          <Share2 size={16} />
         </button>
       </div>
     </div>

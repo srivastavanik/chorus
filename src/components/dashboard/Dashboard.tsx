@@ -107,7 +107,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-black p-8 no-scrollbar relative">
+    <div className="flex-1 overflow-y-auto bg-[#050505] p-8 no-scrollbar relative">
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;
@@ -118,10 +118,11 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
         }
       `}</style>
       
-      {/* Background Gradient Effects */}
+      {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-white/5 rounded-full blur-[120px] opacity-20" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-purple-900/10 rounded-full blur-[100px] opacity-20" />
+        <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay filter contrast-150" />
+        <div className="absolute inset-0 opacity-10 grid-overlay" />
+        <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-white/[0.02] rounded-full blur-[120px]" />
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
@@ -129,7 +130,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
         {/* Left Column: Recent Canvases */}
         <div className="lg:col-span-1 space-y-6">
           <div className="space-y-2">
-            <h1 className="text-4xl font-light text-white leading-tight tracking-tight">
+            <h1 className="text-4xl font-light text-white leading-tight tracking-tight heading-font">
               What truth(s)<br />have you been seeking?
             </h1>
             <p className="text-gray-500 text-sm font-light">Jump back into your recent explorations.</p>
@@ -139,28 +140,28 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-white transition-colors" size={16} />
             <Input 
               placeholder="Search canvases..." 
-              className="pl-10 bg-white/5 border-white/10 text-gray-200 focus:border-white/20 focus:bg-white/10 transition-all rounded-xl h-10"
+              className="pl-10 bg-white/5 border-white/5 text-gray-200 focus:border-white/20 focus:bg-white/10 transition-all rounded-xl h-10 placeholder:text-gray-600"
             />
           </div>
 
           <div className="space-y-2">
             <button 
                 onClick={handleNewCanvas}
-                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group text-left backdrop-blur-sm"
+                className="w-full flex items-center gap-3 p-4 rounded-xl glass-panel hover:bg-white/10 transition-all group text-left"
             >
-                <div className="bg-white/10 p-2 rounded-lg text-white group-hover:scale-110 transition-transform duration-300">
+                <div className="bg-white/5 p-2 rounded-lg text-white border border-white/10 group-hover:border-white/30 transition-colors">
                     <Plus size={20} />
                 </div>
                 <div>
-                    <div className="font-medium text-white">New Canvas</div>
+                    <div className="font-medium text-white heading-font">New Canvas</div>
                     <div className="text-xs text-gray-500">Start a new journey</div>
                 </div>
             </button>
 
             {loading ? (
-              <div className="text-gray-500 text-sm py-4 animate-pulse">Loading...</div>
+              <div className="text-gray-500 text-sm py-4 animate-pulse font-mono">LOADING_DATA...</div>
             ) : canvases.length === 0 ? (
-              <div className="text-gray-500 text-sm py-4">No recent canvases found.</div>
+              <div className="text-gray-500 text-sm py-4 font-mono">NO_RECENT_CANVASES</div>
             ) : (
               canvases.map(canvas => (
                 <button 
@@ -171,7 +172,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
                         <Clock size={14} className="text-gray-600 group-hover:text-gray-400 transition-colors" />
-                        <span className="text-sm font-medium text-gray-300 group-hover:text-white truncate max-w-[180px] transition-colors">
+                        <span className="text-sm font-medium text-gray-300 group-hover:text-white truncate max-w-[180px] transition-colors heading-font">
                         {canvas.name}
                         </span>
                     </div>
@@ -180,7 +181,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
                     </span>
                   </div>
                   
-                  <div className="text-xs text-gray-500 pl-6 line-clamp-2 leading-relaxed group-hover:text-gray-400 transition-colors">
+                  <div className="text-xs text-gray-500 pl-6 line-clamp-2 leading-relaxed group-hover:text-gray-400 transition-colors font-light">
                     {canvas.summary}
                   </div>
                 </button>
@@ -195,7 +196,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
           {/* Section 1: Recent Generated Images */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-light text-white flex items-center gap-2 tracking-wide">
+              <h2 className="text-lg font-light text-white flex items-center gap-2 tracking-wide heading-font">
                 <ImageIcon size={16} className="text-gray-400" />
                 Recent Generations
               </h2>
@@ -213,9 +214,9 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
                 ))}
               </div>
             ) : (
-              <div className="bg-white/5 rounded-xl p-8 text-center border border-white/5 border-dashed">
+              <div className="glass-panel rounded-xl p-8 text-center border-dashed">
                 <ImageIcon size={24} className="mx-auto text-gray-700 mb-3" />
-                <p className="text-gray-500 text-sm">No generated images yet.</p>
+                <p className="text-gray-500 text-sm font-mono">NO_IMAGES_FOUND</p>
                 <p className="text-gray-600 text-xs mt-1 font-light">Start a chat or use the scratchpad to create.</p>
               </div>
             )}
@@ -224,18 +225,18 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
           {/* Section 2: Uploaded Files */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-light text-white flex items-center gap-2 tracking-wide">
+              <h2 className="text-lg font-light text-white flex items-center gap-2 tracking-wide heading-font">
                 <FileText size={16} className="text-gray-400" />
                 Uploaded Files
               </h2>
               {files.length > 0 && (
-                <button className="text-xs text-gray-500 hover:text-white transition-colors px-2 py-1 hover:bg-white/5 rounded">
+                <button className="text-xs text-gray-500 hover:text-white transition-colors px-2 py-1 hover:bg-white/5 rounded font-mono uppercase">
                   View All
                 </button>
               )}
             </div>
 
-            <div className="bg-white/5 rounded-xl border border-white/5 overflow-hidden backdrop-blur-sm">
+            <div className="glass-panel rounded-xl overflow-hidden">
               {files.length > 0 ? (
                 <div className="grid grid-cols-1">
                   {files.slice(0, 5).map((file) => (
@@ -254,11 +255,11 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-gray-300 group-hover:text-white truncate transition-colors font-medium">{file.name}</div>
-                        <div className="text-[10px] text-gray-600 flex items-center gap-2 mt-0.5">
+                        <div className="text-sm text-gray-300 group-hover:text-white truncate transition-colors font-medium heading-font">{file.name}</div>
+                        <div className="text-[10px] text-gray-600 flex items-center gap-2 mt-0.5 font-mono">
                           <span>{(file.size / 1024).toFixed(1)} KB</span>
                           <span className="w-0.5 h-0.5 bg-gray-700 rounded-full" />
-                          <span className="font-mono">{formatDate(file.created_at)}</span>
+                          <span>{formatDate(file.created_at)}</span>
                         </div>
                       </div>
                       
@@ -271,7 +272,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
               ) : (
                 <div className="p-12 text-center">
                   <FileText size={24} className="mx-auto text-gray-700 mb-3" />
-                  <p className="text-gray-500 text-sm">No files uploaded.</p>
+                  <p className="text-gray-500 text-sm font-mono">NO_FILES_UPLOADED</p>
                   <p className="text-gray-600 text-xs mt-1 font-light">Drag and drop files onto a canvas to upload.</p>
                 </div>
               )}
@@ -295,15 +296,15 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
             </button>
             
             <div 
-                className="w-full max-w-5xl h-[85vh] bg-[#111] rounded-2xl border border-white/10 overflow-hidden shadow-2xl flex flex-col"
+                className="w-full max-w-5xl h-[85vh] bg-[#0a0a0a] rounded-2xl border border-white/10 overflow-hidden shadow-2xl flex flex-col"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="p-4 border-b border-white/10 bg-[#111] flex justify-between items-center">
-                    <h3 className="text-white font-medium truncate">{previewFile.name}</h3>
+                <div className="p-4 border-b border-white/10 bg-[#0a0a0a] flex justify-between items-center">
+                    <h3 className="text-white font-medium truncate heading-font">{previewFile.name}</h3>
                     <a 
                         href={previewFile.url} 
                         download 
-                        className="text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
+                        className="text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors font-mono uppercase"
                     >
                         Download
                     </a>
@@ -316,7 +317,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
                     ) : (
                         <div className="text-center text-gray-500">
                             <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                            <p>Preview not available for this file type.</p>
+                            <p className="font-mono text-sm">PREVIEW_UNAVAILABLE</p>
                         </div>
                     )}
                 </div>
