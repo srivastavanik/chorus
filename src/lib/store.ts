@@ -649,7 +649,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         set({ canvasId: id });
       }
 
-      const payload: any = { id, nodes, edges };
+      // Sanitize nodes to remove large base64 data before saving
+      const sanitizedNodes = nodes.map((node) => {
+        if (node.type === "file" && node.data?.fileData && typeof node.data.fileData === "string" && node.data.fileData.startsWith("data:")) {
+          // Create a shallow copy of data without the large fileData
+          const { fileData, ...restData } = node.data;
+          return { ...node, data: restData };
+        }
+        return node;
+      });
+
+      const payload: any = { id, nodes: sanitizedNodes, edges };
       // Prefer passed name, then state name, then undefined (which lets backend decide or keep existing)
       if (name) {
         payload.name = name;
