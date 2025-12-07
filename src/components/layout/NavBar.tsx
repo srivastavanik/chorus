@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -19,12 +18,12 @@ export function NavBar({ onHomeClick }: { onHomeClick: () => void }) {
 
   return (
     <nav className="h-14 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md flex items-center px-6 justify-between z-50 w-full sticky top-0">
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2">
         <button
           onClick={onHomeClick}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
         >
-          <div className="w-24 h-6 relative opacity-90 group-hover:opacity-100 transition-opacity">
+          <div className="w-20 h-6 relative opacity-90 group-hover:opacity-100 transition-opacity">
             <Image
               src="/xai.png"
               alt="Chorus"
@@ -33,8 +32,6 @@ export function NavBar({ onHomeClick }: { onHomeClick: () => void }) {
             />
           </div>
         </button>
-
-        <div className="h-4 w-px bg-white/10 mx-2 hidden md:block" />
 
         <button
           onClick={onHomeClick}
