@@ -255,13 +255,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
   return (
     <div 
       className={`
-        bg-[#0a0a0a] border rounded-xl w-[450px] flex flex-col shadow-lg
+        bg-[#0a0a0a] border rounded-2xl w-[450px] flex flex-col shadow-lg overflow-hidden
         ${isLoading ? 'border-gray-500' : ''}
         ${selected ? 'border-white' : 'border-gray-800'}
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing drag-handle">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle">
         <div className="flex items-center gap-2 relative">
           <button 
             ref={modelBtnRef}
@@ -569,7 +569,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
 
       {/* Reasoning Section - Below input */}
       {(reasoning || (isLoading && model.includes('grok-4') && !model.includes('non-reasoning'))) && (
-        <div className="border-t border-gray-700 bg-[#141414] rounded-b-xl nopan nodrag">
+        <div className="border-t border-gray-700 bg-[#141414] nopan nodrag">
           <button 
             onClick={() => setShowReasoning(!showReasoning)}
             className="w-full px-3 py-2 flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors"
