@@ -51,6 +51,7 @@ const CURSOR_THROTTLE_MS = 75; // Throttle cursor updates (balanced for 5+ users
 const SYNC_INTERVAL_MS = 30000; // Sync canvas state every 30 seconds (reduced to minimize conflicts)
 const LOCAL_CHANGE_GRACE_PERIOD_MS = 5000; // Don't sync from server within 5s of local changes
 const NODE_GRACE_PERIOD_MS = 45000; // 45s grace period to preserve recent/local nodes
+const PRESENCE_THROTTLE_MS = 2000; // Limit presence updates to avoid websocket overload
 
 /**
  * Merge two arrays of nodes, preserving all unique nodes from both sources.
@@ -184,6 +185,8 @@ export function useCollaboration({
   const lastLocalChangeRef = useRef<number>(0);
   // Track node IDs we've seen from broadcasts to never delete them in sync
   const knownRemoteNodeIdsRef = useRef<Set<string>>(new Set());
+  // Throttle presence updates to avoid overwhelming the realtime channel
+  const lastPresenceUpdateRef = useRef<number>(0);
 
   // Update my color when preferredColor changes
   useEffect(() => {
@@ -564,15 +567,26 @@ export function useCollaboration({
     (type: BroadcastPayload["type"], data: any) => {
       if (!channelRef.current || !userId) return;
 
-      // Track that we made a local change
+    // Track that we made a local change (ignore cursor to keep server sync running)
+    if (type !== "cursor") {
       lastLocalChangeRef.current = Date.now();
+    }
 
       // If creating a node, track its ID
       if (type === "node:create" && data.node?.id) {
         knownRemoteNodeIdsRef.current.add(data.node.id);
       }
 
-      channelRef.current.send({
+    // Avoid REST fallback by only sending when joined
+    if (channelRef.current.state !== "joined") {
+      console.warn(
+        "[Collab] Skip broadcast, channel not joined:",
+        channelRef.current.state
+      );
+      return;
+    }
+
+    channelRef.current.send({
         type: "broadcast",
         event: "canvas_update",
         payload: { type, userId, data, timestamp: Date.now() },
@@ -581,33 +595,48 @@ export function useCollaboration({
     [userId]
   );
 
-  // Throttled cursor update
-  const updateCursor = useCallback(
-    (cursor: { x: number; y: number } | null) => {
-      if (!channelRef.current || !userId) return;
-
-      const now = Date.now();
-      if (now - lastCursorUpdateRef.current < CURSOR_THROTTLE_MS) {
-        return; // Throttle
+  // Throttled presence updates to avoid overwhelming the websocket
+  const trackPresence = useCallback(
+    (
+      override?: {
+        cursor?: { x: number; y: number } | null;
+        activeNodeId?: string | null;
       }
-      lastCursorUpdateRef.current = now;
-      currentCursorRef.current = cursor;
+    ) => {
+      if (!channelRef.current || !userId) return;
+      const now = Date.now();
+      if (now - lastPresenceUpdateRef.current < PRESENCE_THROTTLE_MS) return;
+      lastPresenceUpdateRef.current = now;
 
-      // Broadcast cursor to others
-      broadcast("cursor", { cursor });
-
-      // Also update presence (preserving activeNodeId)
       channelRef.current.track({
         id: userId,
         name: userName || userEmail || "Anonymous",
         email: userEmail || "",
         avatarUrl: userAvatarUrl,
         color: myColor,
-        cursor,
-        activeNodeId: currentActiveNodeRef.current,
+        cursor: override?.cursor ?? currentCursorRef.current,
+        activeNodeId: override?.activeNodeId ?? currentActiveNodeRef.current,
       } as PresencePayload);
     },
-    [userId, userName, userEmail, userAvatarUrl, myColor, broadcast]
+    [userId, userName, userEmail, userAvatarUrl, myColor]
+  );
+
+  // Throttled cursor update (broadcast only; presence handled separately)
+  const updateCursor = useCallback(
+    (cursor: { x: number; y: number } | null) => {
+      if (!channelRef.current || !userId) return;
+
+      const now = Date.now();
+      if (now - lastCursorUpdateRef.current < CURSOR_THROTTLE_MS) {
+        return; // Throttle broadcast frequency
+      }
+      lastCursorUpdateRef.current = now;
+      currentCursorRef.current = cursor;
+
+      broadcast("cursor", { cursor });
+      trackPresence({ cursor });
+    },
+    [userId, broadcast, trackPresence]
   );
 
   // Update active node (for highlighting)
@@ -617,17 +646,9 @@ export function useCollaboration({
 
       currentActiveNodeRef.current = nodeId;
 
-      channelRef.current.track({
-        id: userId,
-        name: userName || userEmail || "Anonymous",
-        email: userEmail || "",
-        avatarUrl: userAvatarUrl,
-        color: myColor,
-        cursor: currentCursorRef.current,
-        activeNodeId: nodeId,
-      } as PresencePayload);
+      trackPresence({ activeNodeId: nodeId });
     },
-    [userId, userName, userEmail, userAvatarUrl, myColor]
+    [userId, trackPresence]
   );
 
   // Force sync current state to all collaborators
