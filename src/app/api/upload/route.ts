@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getUserByToken } from '@/lib/auth-utils';
-
-// Helper to get service role client for storage admin operations
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const XAI_API_KEY = process.env.XAI_API_KEY;
 
 export async function POST(req: Request) {
   try {
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Create a unique path: user_id/timestamp_filename
+    // 1. Upload to Supabase Storage (for UI/Persistence)
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${user.id}/${fileName}`;
@@ -47,8 +47,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Generate a signed URL for viewing (valid for 1 year for simplicity in this MVP)
-    // In a prod app, you might proxy the download or refresh tokens.
+    // Generate signed URL
     const { data: urlData, error: urlError } = await supabaseAdmin
       .storage
       .from('canvas_assets')
@@ -58,12 +57,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to generate URL' }, { status: 500 });
     }
 
+    // 2. Upload to xAI Files API (for Chat/Agentic capabilities)
+    let xaiFileId = null;
+    if (XAI_API_KEY) {
+        try {
+            const xaiFormData = new FormData();
+            // We need to re-create a Blob/File from buffer because we consumed it? 
+            // Actually ArrayBuffer is reusable.
+            // Node's FormData might need a Blob or compatible object.
+            const blob = new Blob([buffer], { type: file.type });
+            xaiFormData.append('file', blob, file.name);
+            xaiFormData.append('purpose', 'assistants'); // Standard purpose
+
+            const xaiRes = await fetch('https://api.x.ai/v1/files', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${XAI_API_KEY}`,
+                    // Content-Type is set automatically by FormData
+                },
+                body: xaiFormData
+            });
+
+            if (xaiRes.ok) {
+                const xaiData = await xaiRes.json();
+                xaiFileId = xaiData.id;
+            } else {
+                console.warn('xAI File Upload failed:', await xaiRes.text());
+            }
+        } catch (xaiError) {
+            console.error('xAI Upload exception:', xaiError);
+        }
+    }
+
     return NextResponse.json({ 
       path: data.path,
       url: urlData.signedUrl,
       filename: file.name,
       type: file.type,
-      size: file.size
+      size: file.size,
+      xaiFileId // Return this to frontend to store in node data
     });
 
   } catch (e) {
@@ -71,4 +103,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-

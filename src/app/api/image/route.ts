@@ -5,9 +5,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { prompt, model = 'grok-2-image', quality = 'medium', n = 1, editImage } = body;
 
-    // Ensure correct model for image generation
-    const finalModel = model === 'grok-2-image' ? 'grok-2-image' : model;
-
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
@@ -25,13 +22,14 @@ export async function POST(req: NextRequest) {
 
     const requestBody: any = {
       prompt,
-      model: finalModel,
+      model: model,
       n,
       response_format: 'url',
     };
 
-    // Add quality for generations
-    if (!isEdit) {
+    // Add quality only for grok-imagine models (v0p9 or future versions)
+    // grok-2-image does NOT support quality
+    if (!isEdit && model.includes('grok-imagine')) {
       requestBody.quality = quality;
     }
 
@@ -64,4 +62,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

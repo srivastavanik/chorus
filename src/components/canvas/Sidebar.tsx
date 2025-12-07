@@ -45,6 +45,15 @@ export function Sidebar() {
     }
   };
 
+  const handleNewCanvas = () => {
+    // Force a reload to reset state is one way, but ideally we should reset store
+    // For now, let's keep reload but add a small delay or check to avoid multi-click issues
+    // Or better, just redirect to home if we were using router params, but we aren't.
+    // The issue of "5 canvases" might be race conditions in the page load.
+    // Let's rely on standard window.location.href = '/' to be cleaner than reload()
+    window.location.href = '/';
+  };
+
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -91,7 +100,6 @@ export function Sidebar() {
 
   const handleSignOut = async () => {
     await logout();
-    // Optional: redirect or window reload handled by auth provider/state change
   };
 
   const formatDate = (date: string) => {
@@ -133,10 +141,7 @@ export function Sidebar() {
           <button 
             className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-black py-2 rounded-lg text-sm font-medium transition-colors"
             title="Create new canvas"
-            onClick={() => {
-              // Add logic to create new canvas or clear current
-              window.location.reload(); 
-            }}
+            onClick={handleNewCanvas}
           >
             <Plus size={16} />
             New Canvas

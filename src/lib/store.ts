@@ -20,6 +20,10 @@ export interface ChatMessage {
   reasoning?: string;
   timestamp?: number;
   rating?: "up" | "down" | null;
+  attachments?: {
+    file_id: string; // xAI file ID
+    tools: { type: "file_search" | "code_interpreter" }[];
+  }[];
 }
 
 export interface TextNodeData {
@@ -27,9 +31,11 @@ export interface TextNodeData {
   model?: string;
   webSearch?: boolean;
   reasoning?: string;
+  attachedFiles?: string[];
 }
 
 export interface CanvasState {
+  canvasId: string | null; // Track current canvas ID
   nodes: Node[];
   edges: Edge[];
   user: any | null;
@@ -38,6 +44,7 @@ export interface CanvasState {
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   setUser: (user: any) => void;
+  setCanvasId: (id: string | null) => void;
   addNode: (
     type: NodeType,
     position?: XYPosition,
@@ -81,10 +88,6 @@ const NODE_WIDTH = 480;
 const NODE_HEIGHT = 450;
 const PADDING = 100;
 
-// Counter for unique positioning
-let nodeCounter = 0;
-
-// Find empty position using a cascade approach
 const findEmptyPosition = (
   nodes: Node[],
   preferredX?: number,
@@ -93,13 +96,11 @@ const findEmptyPosition = (
   const startX = preferredX ?? 100;
   const startY = preferredY ?? 100;
 
-  // Try small offsets first (cascade effect) - up to 50 attempts
   for (let i = 0; i < 50; i++) {
-    const offset = i * 40; // Increased offset for better visibility
+    const offset = i * 40;
     const x = startX + offset;
     const y = startY + offset;
 
-    // Check if there is a node very close to this position
     const isOccupied = nodes.some(
       (node) =>
         Math.abs(node.position.x - x) < 40 && Math.abs(node.position.y - y) < 40
@@ -110,7 +111,6 @@ const findEmptyPosition = (
     }
   }
 
-  // Fallback: just add a random small offset
   return {
     x: startX + Math.random() * 40 - 20,
     y: startY + Math.random() * 40 - 20,
@@ -118,12 +118,14 @@ const findEmptyPosition = (
 };
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
+  canvasId: null,
   nodes: [],
   edges: [],
   user: null,
   selectedNodeId: null,
 
   setUser: (user) => set({ user }),
+  setCanvasId: (id) => set({ canvasId: id }),
 
   onNodesChange: (changes) => {
     set({
@@ -342,7 +344,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ? 352
         : 280);
 
-    // Copy node data for reimagining
     const newNode: Node = {
       id,
       type: sourceNode.type,
@@ -357,7 +358,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       source: sourceId,
       target: id,
       type: "bezier",
-      style: { strokeDasharray: "5,5" }, // Dashed line for reimagine
+      style: { strokeDasharray: "5,5" },
     };
 
     set({
@@ -419,14 +420,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const id = crypto.randomUUID();
     const nodePosition = findEmptyPosition(nodes, position.x, position.y);
 
-    // Optimistic UI: Read as base64 for immediate display while uploading
     const reader = new FileReader();
     const base64Preview = await new Promise<string>((resolve) => {
       reader.onload = () => resolve(reader.result as string);
       reader.readAsDataURL(file);
     });
 
-    // Create node immediately with local data
     const newNode: Node = {
       id,
       type: "file",
@@ -436,7 +435,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         label: file.name,
         fileType: file.type,
         fileSize: file.size,
-        fileData: base64Preview, // Temporary local preview
+        fileData: base64Preview,
         uploading: true,
       },
       dragHandle: ".drag-handle",
@@ -444,7 +443,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     set({ nodes: [...nodes, newNode] });
 
-    // Perform upload
     const formData = new FormData();
     formData.append("file", file);
 
@@ -457,7 +455,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       if (data.error) throw new Error(data.error);
 
-      // Update node with remote URL
       set({
         nodes: get().nodes.map((n) =>
           n.id === id
@@ -465,7 +462,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                 ...n,
                 data: {
                   ...n.data,
-                  fileData: data.url, // Use signed URL
+                  fileData: data.url,
+                  xaiFileId: data.xaiFileId,
                   uploading: false,
                   storagePath: data.path,
                 },
@@ -475,7 +473,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       });
     } catch (error) {
       console.error("Upload failed:", error);
-      // Mark as error
       set({
         nodes: get().nodes.map((n) =>
           n.id === id
@@ -492,7 +489,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { nodes, edges } = get();
     const id = crypto.randomUUID();
 
-    // Calculate position - find empty space
     const nodePosition = position
       ? findEmptyPosition(nodes, position.x, position.y)
       : findEmptyPosition(nodes);
@@ -549,7 +545,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!sourceNode) return "";
 
     const id = crypto.randomUUID();
-    // Offset position slightly
     const position = findEmptyPosition(
       nodes,
       sourceNode.position.x + 50,
@@ -561,7 +556,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       id,
       position,
       selected: false,
-      data: { ...sourceNode.data }, // Shallow copy of data
+      data: { ...sourceNode.data },
     };
 
     set({ nodes: [...nodes, newNode] });
@@ -583,14 +578,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCanvas: async (name) => {
-    const { nodes, edges } = get();
+    const { nodes, edges, canvasId } = get();
     try {
+      const payload: any = { nodes, edges };
+      if (name) payload.name = name;
+      if (canvasId) payload.id = canvasId; // Only include ID if we have one
+
       const response = await fetch("/api/canvas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, nodes, edges }),
+        body: JSON.stringify(payload),
       });
+      
       if (!response.ok) throw new Error("Failed to save");
+      
+      const data = await response.json();
+      if (data.id && data.id !== canvasId) {
+        set({ canvasId: data.id }); // Update ID to prevent duplicate creation
+      }
     } catch (error) {
       console.error("Save failed:", error);
     }

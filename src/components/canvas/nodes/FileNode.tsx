@@ -84,30 +84,45 @@ export function FileNode({ id, data, selected }: NodeProps) {
 
       {/* Full preview modal */}
       {showPreview && (
-        <div className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-8" onClick={() => setShowPreview(false)}>
+        <div 
+            className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-8 backdrop-blur-sm"
+            onClick={(e) => {
+                // Close if clicking outside content
+                if (e.target === e.currentTarget) setShowPreview(false);
+            }}
+        >
           <button 
-            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white"
+            className="absolute top-6 right-6 p-2 text-white bg-gray-800 hover:bg-gray-700 rounded-full transition-colors z-[210] shadow-lg border border-gray-700"
             onClick={() => setShowPreview(false)}
           >
             <X size={24} />
           </button>
-          {isImage && data.fileData && (
-            <img src={data.fileData} alt={data.label} className="max-w-full max-h-full rounded-lg" />
-          )}
-          {isText && data.fileData && (
-            <pre className="bg-gray-900 p-4 rounded-lg overflow-auto max-w-full max-h-full text-sm text-gray-300 whitespace-pre-wrap">
-              {atob(data.fileData.split(',')[1] || '')}
-            </pre>
-          )}
-          {data.fileType?.includes('pdf') && data.fileData && (
-            <div className="w-[80vw] h-[80vh] bg-white rounded-lg overflow-hidden">
-              <iframe 
-                src={data.fileData} 
-                className="w-full h-full"
-                title={data.label || 'PDF Preview'}
-              />
-            </div>
-          )}
+
+          <div className="relative w-full h-full max-w-6xl max-h-[90vh] flex items-center justify-center">
+              {isImage && data.fileData && (
+                <img 
+                    src={data.fileData} 
+                    alt={data.label} 
+                    className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" 
+                />
+              )}
+              {isText && data.fileData && (
+                <div className="w-full h-full bg-[#1e1e1e] rounded-lg border border-gray-800 overflow-hidden shadow-2xl">
+                    <pre className="w-full h-full p-6 overflow-auto text-sm font-mono text-gray-300">
+                    {data.fileData.includes('base64,') ? atob(data.fileData.split(',')[1] || '') : data.fileData}
+                    </pre>
+                </div>
+              )}
+              {isPDF && data.fileData && (
+                <div className="w-full h-full bg-[#1e1e1e] rounded-lg border border-gray-800 overflow-hidden shadow-2xl">
+                  <iframe 
+                    src={data.fileData} 
+                    className="w-full h-full"
+                    title={data.label || 'PDF Preview'}
+                  />
+                </div>
+              )}
+          </div>
         </div>
       )}
       

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
 const sans = Inter({
   variable: "--font-sans",
@@ -17,17 +18,16 @@ export const metadata: Metadata = {
   description: "A node-based AI workspace",
 };
 
-import { AuthProvider } from "@/components/auth/AuthProvider";
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={`${sans.variable} ${mono.variable} antialiased bg-black text-white overflow-hidden`}
+        suppressHydrationWarning
       >
         <AuthProvider>
           {children}

@@ -67,7 +67,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [detectedItems, setDetectedItems] = useState<string[]>([]);
-  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  // attachedFiles: Array of { name, id (xAI ID), uploading }
+  const [attachedFiles, setAttachedFiles] = useState<{name: string, id?: string, uploading?: boolean}[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -120,18 +121,36 @@ export function TextNode({ id, data, selected }: NodeProps) {
     }
   }, [messages, isLoading]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      // In a real implementation, we would upload these files first
-      // For now, we'll just store the names/urls locally or handle uploads if we had the mechanism in this component
-      // But since we have an upload API, let's assume we might handle it or just pass the file object if we were doing client-side
-      // The best way here is to use the addFileNode logic or similar to upload
-      // But for attaching to CHAT, we likely need to upload to xAI Files API or pass base64/url
-      
-      // For this implementation, let's just pretend we attached them for the prompt
-      const newFiles = files.map(f => f.name);
-      setAttachedFiles([...attachedFiles, ...newFiles]);
+    if (files.length === 0) return;
+
+    // Add to state as uploading
+    const newFiles = files.map(f => ({ name: f.name, uploading: true }));
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+
+    // Upload each
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        
+        if (data.xaiFileId) {
+            setAttachedFiles(prev => prev.map(f => f.name === file.name ? { name: f.name, id: data.xaiFileId, uploading: false } : f));
+        } else {
+            // Fallback if xAI upload failed but Supabase succeeded? Or just remove
+            // For now, mark as failed or just keep without ID (but won't work for chat)
+            console.warn("Uploaded but no xAI ID returned");
+            setAttachedFiles(prev => prev.map(f => f.name === file.name ? { name: f.name, uploading: false } : f));
+        }
+      } catch (err) {
+        console.error("Upload failed", err);
+        setAttachedFiles(prev => prev.filter(f => f.name !== file.name));
+      }
     }
   };
 
@@ -144,9 +163,15 @@ export function TextNode({ id, data, selected }: NodeProps) {
     setStatus(null);
     setCitations([]);
     
+    // Construct content. If files are attached, we mention them in display, 
+    // but the logic handled by backend uses file_ids
+    const attachedNames = attachedFiles.map(f => f.name).join(', ');
     const userContent = attachedFiles.length > 0 
-      ? `${submitPrompt}\n\n[Attached: ${attachedFiles.join(', ')}]` 
+      ? `${submitPrompt}\n\n[Attached: ${attachedNames}]` 
       : submitPrompt;
+
+    // Store attached file IDs
+    const validFileIds = attachedFiles.map(f => f.id).filter(Boolean) as string[];
 
     addMessageToNode(id, { role: 'user', content: userContent });
     setAttachedFiles([]); // Clear attachments after sending
@@ -165,7 +190,12 @@ export function TextNode({ id, data, selected }: NodeProps) {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: allMessages, model, webSearch }),
+        body: JSON.stringify({ 
+            messages: allMessages, 
+            model, 
+            webSearch,
+            attachedFileIds: validFileIds 
+        }),
       });
       
       if (!response.ok) throw new Error('Failed to fetch');
@@ -211,14 +241,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
               if (event.citations) setCitations(event.citations);
             }
           } catch (e) {
-            accumulated += line;
-            const currentMessages = useCanvasStore.getState().nodes.find(n => n.id === id)?.data.messages || [];
-            const lastMsg = currentMessages[currentMessages.length - 1];
-            if (lastMsg?.role === 'assistant') {
-              updateMessageInNode(id, currentMessages.length - 1, accumulated, accumulatedReasoning);
-            } else {
-              addMessageToNode(id, { role: 'assistant', content: accumulated, reasoning: accumulatedReasoning });
-            }
+            // Just append as raw text if JSON parse fails (fallback)
+            // But ideally we should handle errors better
+            // accumulated += line;
           }
         }
       }
@@ -364,7 +389,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
           <button 
             onClick={() => fileInputRef.current?.click()}
             className={`p-1.5 rounded-md transition-all duration-200 nodrag ${attachedFiles.length > 0 ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
-            title="Attach files (mock for now)"
+            title="Attach files"
           >
             <Paperclip size={14} />
           </button>
@@ -626,7 +651,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
           <div className="flex flex-wrap gap-2 mb-2">
             {attachedFiles.map((file, i) => (
               <div key={i} className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded-md flex items-center gap-1">
-                <span>{file}</span>
+                {file.uploading && <Loader2 size={10} className="animate-spin" />}
+                <span className="truncate max-w-[100px]">{file.name}</span>
                 <button onClick={() => setAttachedFiles(files => files.filter((_, index) => index !== i))} className="hover:text-white">
                   <X size={10} />
                 </button>
