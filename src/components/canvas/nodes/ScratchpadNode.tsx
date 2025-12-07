@@ -188,6 +188,33 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
     const sketchDataUrl = getCanvasDataUrl();
     if (!sketchDataUrl) return;
 
+    // Gather text context from connected TextNodes
+    const { nodes, edges } = useCanvasStore.getState();
+    const incomingEdges = edges.filter(e => e.target === id);
+    const connectedNodes = incomingEdges
+      .map(e => nodes.find(n => n.id === e.source))
+      .filter(Boolean);
+
+    const textContextParts: string[] = [];
+    connectedNodes.forEach(node => {
+      if (node?.type === 'text' && node.data?.messages) {
+        const messages = node.data.messages as Array<{ role: string; content: string }>;
+        const recentMessages = messages.slice(-4);
+        const contextText = recentMessages
+          .map(m => `${m.role}: ${m.content}`)
+          .join('\n');
+        if (contextText) {
+          textContextParts.push(contextText);
+        }
+      }
+    });
+
+    // Build enhanced prompt with context
+    let enhancedPrompt = prompt;
+    if (textContextParts.length > 0) {
+      enhancedPrompt = `Context from conversation:\n${textContextParts.join('\n---\n')}\n\nImage request: ${prompt}`;
+    }
+
     // Trigger auto-title
     if (prompt.trim()) {
       scheduleAutoTitle(prompt);
@@ -215,9 +242,9 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: prompt,
+            prompt: enhancedPrompt,
             editImage: sketchDataUrl,
-            model: "grok-2-image",
+            model: "grok-imagine-v0p9",
           }),
         });
 

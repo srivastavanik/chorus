@@ -13,9 +13,9 @@ import { useCanvasStore } from '@/lib/store';
 import { useClickOutside } from '@/hooks/useClickOutside';
 
 const MODELS = [
+  { id: 'grok-imagine-v0p9', name: 'Grok Imagine v0.9', description: 'Recommended' },
   { id: 'grok-2-image', name: 'Grok 2 Image', description: 'Latest model' },
   { id: 'grok-2-image-1212', name: 'Grok 2 Image 1212', description: 'December 2024' },
-  { id: 'grok-imagine-v0p9', name: 'Grok Imagine v0.9', description: 'Imagine model' },
 ];
 
 const QUALITY_OPTIONS = [
@@ -25,7 +25,7 @@ const QUALITY_OPTIONS = [
 ];
 
 export function ImageNode({ id, data, selected }: NodeProps) {
-  const [model, setModel] = useState('grok-2-image');
+  const [model, setModel] = useState('grok-imagine-v0p9');
   const [quality, setQuality] = useState('medium');
   const [prompt, setPrompt] = useState('');
   const [count, setCount] = useState(1);
@@ -117,9 +117,68 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    if (mode === 'edit' && !editImage) {
-      setError('Please upload an image to edit');
+    
+    // Gather context from connected nodes
+    const { nodes, edges } = useCanvasStore.getState();
+    const incomingEdges = edges.filter(e => e.target === id);
+    const connectedNodes = incomingEdges
+      .map(e => nodes.find(n => n.id === e.source))
+      .filter(Boolean);
+
+    // Get text context from connected TextNodes (use last assistant message or conversation summary)
+    const textContextParts: string[] = [];
+    connectedNodes.forEach(node => {
+      if (node?.type === 'text' && node.data?.messages) {
+        const messages = node.data.messages as Array<{ role: string; content: string }>;
+        // Get the last few messages as context
+        const recentMessages = messages.slice(-4);
+        const contextText = recentMessages
+          .map(m => `${m.role}: ${m.content}`)
+          .join('\n');
+        if (contextText) {
+          textContextParts.push(contextText);
+        }
+      }
+    });
+
+    // Get images from connected ScratchpadNodes or ImageNodes for editing
+    let sourceImageForEdit = editImage;
+    if (mode === 'edit' && !sourceImageForEdit) {
+      // Try to get image from connected scratchpad (canvas drawing or generated)
+      for (const node of connectedNodes) {
+        if (node?.type === 'scratchpad') {
+          // Prefer generated image, fallback to canvas data
+          if (node.data?.generatedImage) {
+            sourceImageForEdit = node.data.generatedImage as string;
+            break;
+          } else if (node.data?.canvasData) {
+            sourceImageForEdit = node.data.canvasData as string;
+            break;
+          }
+        }
+        // Also check connected ImageNodes
+        if (node?.type === 'image') {
+          const images = node.data?.images as Array<{ url: string }> | undefined;
+          if (images?.[0]?.url) {
+            sourceImageForEdit = images[0].url;
+            break;
+          } else if (node.data?.editImage) {
+            sourceImageForEdit = node.data.editImage as string;
+            break;
+          }
+        }
+      }
+    }
+
+    if (mode === 'edit' && !sourceImageForEdit) {
+      setError('Please upload an image to edit or connect a Scratchpad/Image node');
       return;
+    }
+    
+    // Build enhanced prompt with context
+    let enhancedPrompt = prompt;
+    if (textContextParts.length > 0) {
+      enhancedPrompt = `Context from conversation:\n${textContextParts.join('\n---\n')}\n\nImage request: ${prompt}`;
     }
     
     if (prompt.trim()) {
@@ -131,11 +190,11 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     
     try {
       const body = { 
-        prompt, 
+        prompt: enhancedPrompt, 
         model, 
         n: count,
         quality: mode === 'generate' ? quality : undefined,
-        editImage: mode === 'edit' ? editImage : undefined 
+        editImage: mode === 'edit' ? sourceImageForEdit : undefined 
       };
 
       const response = await fetch('/api/image', {

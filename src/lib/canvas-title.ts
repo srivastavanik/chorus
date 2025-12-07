@@ -16,11 +16,12 @@ export async function generateTitleFromPrompt(prompt: string): Promise<string> {
           role: 'system',
           content: `You are a specialized assistant that generates short, descriptive titles for user queries.
 Rules:
-1. Output ONLY the title. No quotes, no intro, no labels.
+1. Output ONLY the title. No quotes, no intro, no labels, no markdown (no ###, **, etc).
 2. Max 6-8 words. Keep it concise.
 3. No emojis.
 4. Avoid "Untitled" or generic names if possible.
-5. If the prompt is meaningless, return "Untitled Canvas".`
+5. If the prompt is meaningless, return "Untitled Canvas".
+6. Do NOT use markdown formatting like ### or ** in the title.`
         },
         {
           role: 'user',
@@ -36,6 +37,10 @@ Rules:
     // Cleanup
     if (title) {
       title = title.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+      title = title.replace(/^#+\s*/, ''); // Remove markdown headers (###, ##, #)
+      title = title.replace(/\*\*/g, ''); // Remove bold markdown
+      title = title.replace(/\*|_/g, ''); // Remove italic markdown
+      title = title.replace(/`/g, ''); // Remove code backticks
       title = title.replace(/\.$/, ''); // Remove trailing dot
       title = title.trim();
     }

@@ -107,16 +107,48 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
   const processedMessages = processMessages(messages, imageUrls);
   
   // Convert standard messages to "input" format for /responses
+  // Use content array format with input_file for proper file handling
   const input = processedMessages.map((m: any, index: number) => {
-    const msg: any = { role: m.role, content: m.content };
-    // Attach files to the LAST user message
+    // For the LAST user message, use content array format with files
     if (index === processedMessages.length - 1 && m.role === 'user' && attachedFileIds.length > 0) {
-        msg.attachments = attachedFileIds.map(id => ({
-            file_id: id,
-            tools: [{ type: "file_search" }]
-        }));
+      const contentArray: any[] = [];
+      
+      // Add file references first
+      attachedFileIds.forEach(fileId => {
+        contentArray.push({
+          type: 'input_file',
+          file_id: fileId
+        });
+      });
+      
+      // Add the text content
+      const textContent = typeof m.content === 'string' ? m.content : 
+        (Array.isArray(m.content) ? m.content.find((c: any) => c.type === 'text')?.text || '' : '');
+      
+      if (textContent) {
+        contentArray.push({
+          type: 'input_text',
+          text: textContent
+        });
+      }
+      
+      // Handle images if present in the content
+      if (Array.isArray(m.content)) {
+        m.content.forEach((c: any) => {
+          if (c.type === 'image_url') {
+            contentArray.push({
+              type: 'input_image',
+              image_url: c.image_url.url,
+              detail: c.image_url.detail || 'high'
+            });
+          }
+        });
+      }
+      
+      return { role: m.role, content: contentArray };
     }
-    return msg;
+    
+    return { role: m.role, content: m.content };
   });
 
   const body = {
