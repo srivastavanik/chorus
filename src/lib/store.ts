@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   Edge,
   Node,
@@ -10,15 +10,15 @@ import {
   applyEdgeChanges,
   addEdge,
   XYPosition,
-} from '@xyflow/react';
+} from "@xyflow/react";
 
-export type NodeType = 'text' | 'image' | 'scratchpad' | 'file';
+export type NodeType = "text" | "image" | "scratchpad" | "file";
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp?: number;
-  rating?: 'up' | 'down' | null;
+  rating?: "up" | "down" | null;
 }
 
 export interface TextNodeData {
@@ -35,14 +35,31 @@ export interface CanvasState {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  addNode: (type: NodeType, position?: XYPosition, parentId?: string, data?: any) => string;
-  addConnectedNode: (sourceId: string, sourceHandlePosition: 'left' | 'right', dropPosition?: XYPosition) => string;
+  addNode: (
+    type: NodeType,
+    position?: XYPosition,
+    parentId?: string,
+    data?: any
+  ) => string;
+  addConnectedNode: (
+    sourceId: string,
+    sourceHandlePosition: "left" | "right",
+    dropPosition?: XYPosition
+  ) => string;
   updateNodeData: (id: string, data: Partial<any>) => void;
   updateNodeContent: (id: string, content: string) => void;
   updateNodeType: (id: string, newType: NodeType) => void;
   addMessageToNode: (id: string, message: ChatMessage) => void;
-  updateMessageInNode: (id: string, messageIndex: number, content: string) => void;
-  rateMessage: (nodeId: string, messageIndex: number, rating: 'up' | 'down' | null) => void;
+  updateMessageInNode: (
+    id: string,
+    messageIndex: number,
+    content: string
+  ) => void;
+  rateMessage: (
+    nodeId: string,
+    messageIndex: number,
+    rating: "up" | "down" | null
+  ) => void;
   splitNode: (id: string, count: number) => void;
   splitNodeWithContent: (id: string, contents: string[]) => void;
   reimagineNode: (id: string) => void;
@@ -61,30 +78,35 @@ const PADDING = 100;
 let nodeCounter = 0;
 
 // Find empty position using a cascade approach
-const findEmptyPosition = (nodes: Node[], preferredX?: number, preferredY?: number): XYPosition => {
+const findEmptyPosition = (
+  nodes: Node[],
+  preferredX?: number,
+  preferredY?: number
+): XYPosition => {
   const startX = preferredX ?? 100;
   const startY = preferredY ?? 100;
-  
+
   // Try small offsets first (cascade effect) - up to 50 attempts
   for (let i = 0; i < 50; i++) {
     const offset = i * 40; // Increased offset for better visibility
     const x = startX + offset;
     const y = startY + offset;
-    
+
     // Check if there is a node very close to this position
-    const isOccupied = nodes.some(node => 
-      Math.abs(node.position.x - x) < 40 && Math.abs(node.position.y - y) < 40
+    const isOccupied = nodes.some(
+      (node) =>
+        Math.abs(node.position.x - x) < 40 && Math.abs(node.position.y - y) < 40
     );
-    
+
     if (!isOccupied) {
       return { x, y };
     }
   }
 
   // Fallback: just add a random small offset
-  return { 
-    x: startX + Math.random() * 40 - 20, 
-    y: startY + Math.random() * 40 - 20 
+  return {
+    x: startX + Math.random() * 40 - 20,
+    y: startY + Math.random() * 40 - 20,
   };
 };
 
@@ -92,33 +114,35 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
-  
+
   onNodesChange: (changes) => {
     set({
       nodes: applyNodeChanges(changes, get().nodes),
     });
   },
-  
+
   onEdgesChange: (changes) => {
     set({
       edges: applyEdgeChanges(changes, get().edges),
     });
   },
-  
+
   onConnect: (connection: Connection) => {
     set({
-      edges: addEdge({ ...connection, type: 'bezier' }, get().edges),
+      edges: addEdge({ ...connection, type: "bezier" }, get().edges),
     });
   },
-  
+
   updateNodeContent: (id, content) => {
     set({
       nodes: get().nodes.map((node) =>
-        node.id === id ? { ...node, data: { ...node.data, label: content } } : node
+        node.id === id
+          ? { ...node, data: { ...node.data, label: content } }
+          : node
       ),
     });
   },
-  
+
   updateNodeData: (id, data) => {
     set({
       nodes: get().nodes.map((node) =>
@@ -148,7 +172,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }),
     });
   },
-  
+
   addMessageToNode: (id, message) => {
     set({
       nodes: get().nodes.map((node) => {
@@ -164,7 +188,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }),
     });
   },
-  
+
   updateMessageInNode: (id, messageIndex, content) => {
     set({
       nodes: get().nodes.map((node) => {
@@ -191,7 +215,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }),
     });
   },
-  
+
   splitNode: (sourceId, count) => {
     const { nodes, edges } = get();
     const sourceNode = nodes.find((n) => n.id === sourceId);
@@ -203,21 +227,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     for (let i = 0; i < count; i++) {
       const id = crypto.randomUUID();
-      const targetY = sourceNode.position.y + (i - Math.floor(count / 2)) * (NODE_HEIGHT + PADDING);
-      const position = findEmptyPosition([...nodes, ...newNodes], newX, targetY);
-      
+      const targetY =
+        sourceNode.position.y +
+        (i - Math.floor(count / 2)) * (NODE_HEIGHT + PADDING);
+      const position = findEmptyPosition(
+        [...nodes, ...newNodes],
+        newX,
+        targetY
+      );
+
       newNodes.push({
         id,
-        type: 'text',
+        type: "text",
         position,
         width: 450,
-        data: { messages: [], label: '' },
+        data: { messages: [], label: "" },
+        dragHandle: ".drag-handle",
       });
       newEdges.push({
         id: `e${sourceId}-${id}`,
         source: sourceId,
         target: id,
-        type: 'bezier',
+        type: "bezier",
       });
     }
 
@@ -226,7 +257,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: [...edges, ...newEdges],
     });
   },
-  
+
   splitNodeWithContent: (sourceId, contents) => {
     const { nodes, edges } = get();
     const sourceNode = nodes.find((n) => n.id === sourceId);
@@ -238,24 +269,33 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     for (let i = 0; i < contents.length; i++) {
       const id = crypto.randomUUID();
-      const targetY = sourceNode.position.y + (i - Math.floor(contents.length / 2)) * (NODE_HEIGHT + PADDING);
-      const position = findEmptyPosition([...nodes, ...newNodes], newX, targetY);
-      
+      const targetY =
+        sourceNode.position.y +
+        (i - Math.floor(contents.length / 2)) * (NODE_HEIGHT + PADDING);
+      const position = findEmptyPosition(
+        [...nodes, ...newNodes],
+        newX,
+        targetY
+      );
+
       newNodes.push({
         id,
-        type: 'text',
+        type: "text",
         position,
         width: 450,
-        data: { 
-          messages: [{ role: 'user', content: contents[i], timestamp: Date.now() }], 
-          label: contents[i].substring(0, 50) 
+        data: {
+          messages: [
+            { role: "user", content: contents[i], timestamp: Date.now() },
+          ],
+          label: contents[i].substring(0, 50),
         },
+        dragHandle: ".drag-handle",
       });
       newEdges.push({
         id: `e${sourceId}-${id}`,
         source: sourceId,
         target: id,
-        type: 'bezier',
+        type: "bezier",
       });
     }
 
@@ -271,9 +311,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!sourceNode) return;
 
     const id = crypto.randomUUID();
-    const position = findEmptyPosition(nodes, sourceNode.position.x + NODE_WIDTH + PADDING, sourceNode.position.y);
-    
-    const width = sourceNode.width || (sourceNode.type === 'text' ? 450 : sourceNode.type === 'image' ? 400 : sourceNode.type === 'scratchpad' ? 352 : 280);
+    const position = findEmptyPosition(
+      nodes,
+      sourceNode.position.x + NODE_WIDTH + PADDING,
+      sourceNode.position.y
+    );
+
+    const width =
+      sourceNode.width ||
+      (sourceNode.type === "text"
+        ? 450
+        : sourceNode.type === "image"
+        ? 400
+        : sourceNode.type === "scratchpad"
+        ? 352
+        : 280);
 
     // Copy node data for reimagining
     const newNode: Node = {
@@ -282,14 +334,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       position,
       width,
       data: { ...sourceNode.data, reimagined: true },
+      dragHandle: ".drag-handle",
     };
 
     const newEdge: Edge = {
       id: `e${sourceId}-${id}`,
       source: sourceId,
       target: id,
-      type: 'bezier',
-      style: { strokeDasharray: '5,5' }, // Dashed line for reimagine
+      type: "bezier",
+      style: { strokeDasharray: "5,5" }, // Dashed line for reimagine
     };
 
     set({
@@ -299,35 +352,43 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     return id;
   },
-  
+
   addConnectedNode: (sourceId, sourceHandlePosition, dropPosition) => {
     const { nodes, edges } = get();
     const sourceNode = nodes.find((n) => n.id === sourceId);
-    if (!sourceNode) return '';
+    if (!sourceNode) return "";
 
     const id = crypto.randomUUID();
     let position: XYPosition;
-    
+
     if (dropPosition) {
       position = findEmptyPosition(nodes, dropPosition.x, dropPosition.y);
     } else {
-      const offsetX = sourceHandlePosition === 'right' ? NODE_WIDTH + PADDING : -(NODE_WIDTH + PADDING);
-      position = findEmptyPosition(nodes, sourceNode.position.x + offsetX, sourceNode.position.y);
+      const offsetX =
+        sourceHandlePosition === "right"
+          ? NODE_WIDTH + PADDING
+          : -(NODE_WIDTH + PADDING);
+      position = findEmptyPosition(
+        nodes,
+        sourceNode.position.x + offsetX,
+        sourceNode.position.y
+      );
     }
 
     const newNode: Node = {
       id,
-      type: 'text',
+      type: "text",
       position,
       width: 450,
-      data: { messages: [], label: '' },
+      data: { messages: [], label: "" },
+      dragHandle: ".drag-handle",
     };
 
     const newEdge: Edge = {
       id: `e${sourceId}-${id}`,
-      source: sourceHandlePosition === 'right' ? sourceId : id,
-      target: sourceHandlePosition === 'right' ? id : sourceId,
-      type: 'bezier',
+      source: sourceHandlePosition === "right" ? sourceId : id,
+      target: sourceHandlePosition === "right" ? id : sourceId,
+      type: "bezier",
     };
 
     set({
@@ -352,38 +413,40 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const newNode: Node = {
       id,
-      type: 'file',
+      type: "file",
       position: nodePosition,
       width: 280, // w-[280px]
-      data: { 
+      data: {
         label: file.name,
         fileType: file.type,
         fileSize: file.size,
         fileData,
       },
+      dragHandle: ".drag-handle",
     };
 
     set({ nodes: [...nodes, newNode] });
     return id;
   },
-  
+
   addNode: (type, position, parentId, data) => {
     const { nodes, edges } = get();
     const id = crypto.randomUUID();
-    
+
     // Calculate position - find empty space
-    const nodePosition = position 
+    const nodePosition = position
       ? findEmptyPosition(nodes, position.x, position.y)
       : findEmptyPosition(nodes);
-    
-    const defaultData = type === 'text' 
-      ? { messages: [], label: '', ...data }
-      : { label: `New ${type} node`, ...data };
-    
+
+    const defaultData =
+      type === "text"
+        ? { messages: [], label: "", ...data }
+        : { label: `New ${type} node`, ...data };
+
     let width = 450;
-    if (type === 'image') width = 400;
-    if (type === 'scratchpad') width = 352;
-    if (type === 'file') width = 280;
+    if (type === "image") width = 400;
+    if (type === "scratchpad") width = 352;
+    if (type === "file") width = 280;
 
     const newNode: Node = {
       id,
@@ -391,6 +454,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       position: nodePosition,
       width,
       data: defaultData,
+      dragHandle: ".drag-handle",
     };
 
     let newEdges = edges;
@@ -402,7 +466,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           id: edgeId,
           source: parentId,
           target: id,
-          type: 'bezier',
+          type: "bezier",
         },
       ];
     }
@@ -410,22 +474,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ nodes: [...nodes, newNode], edges: newEdges });
     return id;
   },
-  
+
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
-  
+
   saveCanvas: async (name) => {
     const { nodes, edges } = get();
     try {
-      const response = await fetch('/api/canvas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/canvas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, nodes, edges }),
       });
-      if (!response.ok) throw new Error('Failed to save');
+      if (!response.ok) throw new Error("Failed to save");
     } catch (error) {
-      console.error('Save failed:', error);
+      console.error("Save failed:", error);
     }
   },
 }));

@@ -221,7 +221,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing drag-handle">
         <div className="flex items-center gap-2 relative">
           <button 
             onClick={() => setShowModelMenu(!showModelMenu)}

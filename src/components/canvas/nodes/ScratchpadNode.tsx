@@ -138,7 +138,7 @@ export function ScratchpadNode({ id, data, selected }: NodeProps) {
   return (
     <div className={`bg-[#0a0a0a] border rounded-xl w-[352px] flex flex-col shadow-lg ${selected ? 'border-white' : 'border-gray-800'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] rounded-t-xl cursor-grab active:cursor-grabbing drag-handle">
         <div className="flex items-center gap-2 text-gray-400">
           <Pencil size={14} />
           <span className="text-xs font-medium">Scratchpad</span>
