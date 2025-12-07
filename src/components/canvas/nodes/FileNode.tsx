@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { FileText, Image as ImageIcon, FileCode, File, Download, Eye, X } from 'lucide-react';
 
-const getFileIcon = (fileType: string) => {
+const getFileIcon = (fileType: string | undefined | null) => {
+  if (!fileType) return File;
   if (fileType.startsWith('image/')) return ImageIcon;
   if (fileType.includes('text') || fileType.includes('json') || fileType.includes('javascript') || fileType.includes('typescript')) return FileCode;
   if (fileType.includes('pdf')) return FileText;
