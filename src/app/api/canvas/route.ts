@@ -100,27 +100,36 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
-    let query = supabase
-      .from('canvases')
-      .select('*')
-      .eq('user_id', user.id);
-
     if (id) {
-        // If ID provided, return single object
-        query = query.eq('id', id).single();
-    } else {
-        // List mode
-        query = query.order('updated_at', { ascending: false });
-    }
-    
-    const { data, error } = await query;
+      // If ID provided, return single object
+      const { data, error } = await supabase
+        .from('canvases')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('id', id)
+        .single();
+        
+      if (error) {
+        console.error('Supabase error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
       
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(data);
+    } else {
+      // List mode
+      const { data, error } = await supabase
+        .from('canvases')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+        
+      if (error) {
+        console.error('Supabase error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      
+      return NextResponse.json(data);
     }
-    
-    return NextResponse.json(data);
   } catch (e) {
     console.error('Canvas list error:', e);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
