@@ -88,18 +88,30 @@ export async function maybeAutoTitleCanvas({
   }
 
   try {
-    // 1. Check current state (only rely on `name` so this works even if
-    //    auto_title_generated column hasn't been added yet).
+    // 1. Fetch canvas and ownership
     const { data: canvas, error } = await supabase
       .from('canvases')
-      .select('name')
+      .select('name, user_id')
       .eq('id', canvasId)
-      .eq('user_id', userId)
       .single();
 
     if (error || !canvas) {
       console.error('Auto-title: Canvas lookup failed', error);
       return { updated: false, reason: 'Canvas not found' };
+    }
+
+    // 1b. Permission: owner or edit/public-edit share
+    const isOwner = canvas.user_id === userId;
+    if (!isOwner) {
+      const { data: share } = await supabase
+        .from('canvas_shares')
+        .select('permission, is_public')
+        .eq('canvas_id', canvasId)
+        .maybeSingle();
+      const canEdit = share?.permission === 'edit' || share?.is_public === true;
+      if (!canEdit) {
+        return { updated: false, reason: 'Not authorized' };
+      }
     }
 
     // 2. Skip if already titled manually.
@@ -129,8 +141,7 @@ export async function maybeAutoTitleCanvas({
         auto_title_generated: true,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', canvasId)
-      .eq('user_id', userId);
+      .eq('id', canvasId);
 
     if (firstUpdateError) {
       const message = String(firstUpdateError.message || '');
@@ -146,8 +157,7 @@ export async function maybeAutoTitleCanvas({
             name: newTitle,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', canvasId)
-          .eq('user_id', userId);
+          .eq('id', canvasId);
 
         updateError = secondUpdateError;
       } else {
