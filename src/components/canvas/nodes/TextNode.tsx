@@ -252,6 +252,8 @@ export function TextNode({ id, data, selected }: NodeProps) {
     setShowSplitMenu(false);
   };
 
+  const isReasoningSectionVisible = reasoning || (isLoading && model.includes('grok-4') && !model.includes('non-reasoning'));
+
   return (
     <div 
       className={`
@@ -261,7 +263,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-2xl">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-[15px]">
         <div className="flex items-center gap-2 relative">
           <button 
             ref={modelBtnRef}
@@ -546,7 +548,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       )}
 
       {/* Input Area */}
-      <div className="p-3 border-t border-gray-700 bg-[#1a1a1a] nopan">
+      <div className={`p-3 border-t border-gray-700 bg-[#1a1a1a] nopan ${!isReasoningSectionVisible ? 'rounded-b-[15px]' : ''}`}>
         <div className="flex gap-2">
           <Input 
             value={prompt}
@@ -568,9 +570,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Reasoning Section - Below input */}
-      {(reasoning || (isLoading && model.includes('grok-4') && !model.includes('non-reasoning'))) && (
-        <div className="border-t border-gray-700 bg-[#141414] nopan nodrag">
-          <button 
+      {isReasoningSectionVisible && (
+        <div className="border-t border-gray-700 bg-[#141414] nopan nodrag rounded-b-[15px]">
+          <button  
             onClick={() => setShowReasoning(!showReasoning)}
             className="w-full px-3 py-2 flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors"
             title={showReasoning ? 'Collapse reasoning' : 'Expand reasoning'}
