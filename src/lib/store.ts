@@ -83,7 +83,7 @@ export interface CanvasState {
   setSelectedNodeId: (id: string | null) => void;
   updateNodeDimensions: (id: string, width: number, height?: number) => void;
   saveCanvas: (name?: string) => Promise<void>;
-  
+
   // New State for Merge
   mergingNodeId: string | null;
   setMergingNodeId: (id: string | null) => void;
@@ -249,15 +249,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
-    const newX = sourceNode.position.x + NODE_WIDTH + 20; 
+    const newX = sourceNode.position.x + NODE_WIDTH + 20;
 
     const VERTICAL_SPACING = NODE_HEIGHT + 20;
 
     for (let i = 0; i < count; i++) {
       const id = crypto.randomUUID();
       const targetY =
-        sourceNode.position.y +
-        (i - Math.floor(count / 2)) * VERTICAL_SPACING;
+        sourceNode.position.y + (i - Math.floor(count / 2)) * VERTICAL_SPACING;
       const position = findEmptyPosition(
         [...nodes, ...newNodes],
         newX,
@@ -395,9 +394,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       position = findEmptyPosition(nodes, dropPosition.x, dropPosition.y);
     } else {
       const offsetX =
-        sourceHandlePosition === "right"
-          ? NODE_WIDTH + 20
-          : -(NODE_WIDTH + 20);
+        sourceHandlePosition === "right" ? NODE_WIDTH + 20 : -(NODE_WIDTH + 20);
       position = findEmptyPosition(
         nodes,
         sourceNode.position.x + offsetX,
@@ -598,9 +595,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { nodes, edges, canvasId } = get();
     set({ saveStatus: "saving" });
     try {
-      const payload: any = { nodes, edges };
+      // Generate ID if not present to ensure upsert works
+      let id = canvasId;
+      if (!id) {
+        id = crypto.randomUUID();
+        set({ canvasId: id });
+      }
+
+      const payload: any = { id, nodes, edges };
       if (name) payload.name = name;
-      if (canvasId) payload.id = canvasId;
 
       const response = await fetch("/api/canvas", {
         method: "POST",
@@ -633,70 +636,71 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   mergeNodes: (targetId) => {
     const { nodes, edges, mergingNodeId } = get();
     if (!mergingNodeId || mergingNodeId === targetId) {
-        set({ mergingNodeId: null });
-        return;
+      set({ mergingNodeId: null });
+      return;
     }
 
-    const sourceNode = nodes.find(n => n.id === mergingNodeId);
-    const targetNode = nodes.find(n => n.id === targetId);
+    const sourceNode = nodes.find((n) => n.id === mergingNodeId);
+    const targetNode = nodes.find((n) => n.id === targetId);
 
     if (!sourceNode || !targetNode) return;
 
     // Only merge text nodes for now
-    if (sourceNode.type !== 'text' || targetNode.type !== 'text') {
-        set({ mergingNodeId: null });
-        return;
+    if (sourceNode.type !== "text" || targetNode.type !== "text") {
+      set({ mergingNodeId: null });
+      return;
     }
 
     // Calculate new position (midpoint + offset)
     const newX = (sourceNode.position.x + targetNode.position.x) / 2;
-    const newY = Math.max(sourceNode.position.y, targetNode.position.y) + NODE_HEIGHT + 50;
+    const newY =
+      Math.max(sourceNode.position.y, targetNode.position.y) + NODE_HEIGHT + 50;
 
     const newId = crypto.randomUUID();
-    
+
     const sourceMsgs = sourceNode.data.messages || [];
     const targetMsgs = targetNode.data.messages || [];
-    
+
     // Sort merged messages by timestamp
-    const combinedMessages = [...sourceMsgs, ...targetMsgs].sort((a, b) => 
-        (a.timestamp || 0) - (b.timestamp || 0)
+    const combinedMessages = [...sourceMsgs, ...targetMsgs].sort(
+      (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
     );
 
     // Create the new merged node
     const newNode: Node = {
       id: newId,
-      type: 'text',
+      type: "text",
       position: { x: newX, y: newY },
       width: 450,
       data: {
         messages: combinedMessages,
-        label: 'Merged Conversation'
+        label: "Merged Conversation",
       },
-      dragHandle: '.drag-handle',
+      dragHandle: ".drag-handle",
     };
 
     // Create edges from parents to new node
     const edge1: Edge = {
-        id: `e${sourceNode.id}-${newId}`,
-        source: sourceNode.id,
-        target: newId,
-        type: 'bezier',
-        animated: true,
+      id: `e${sourceNode.id}-${newId}`,
+      source: sourceNode.id,
+      target: newId,
+      type: "bezier",
+      animated: true,
     };
-    
+
     const edge2: Edge = {
-        id: `e${targetNode.id}-${newId}`,
-        source: targetNode.id,
-        target: newId,
-        type: 'bezier',
-        animated: true,
+      id: `e${targetNode.id}-${newId}`,
+      source: targetNode.id,
+      target: newId,
+      type: "bezier",
+      animated: true,
     };
 
     set({
-        nodes: [...nodes, newNode],
-        edges: [...edges, edge1, edge2],
-        mergingNodeId: null, 
-        selectedNodeId: newId 
+      nodes: [...nodes, newNode],
+      edges: [...edges, edge1, edge2],
+      mergingNodeId: null,
+      selectedNodeId: newId,
     });
   },
 }));

@@ -13,17 +13,22 @@ export async function POST(req: Request) {
 
     const { id, name, nodes, edges } = await req.json();
     
+    const upsertData: any = {
+      user_id: user.id,
+      name: name || 'Untitled Canvas', 
+      nodes: nodes || [], 
+      edges: edges || [],
+      updated_at: new Date().toISOString()
+    };
+
+    if (id) {
+      upsertData.id = id;
+    }
+
     // Upsert canvas
     const { data, error } = await supabase
       .from('canvases')
-      .upsert({ 
-        id, // If provided, update. If not, insert (but we likely need an ID for upsert to work as update)
-        user_id: user.id,
-        name: name || 'Untitled Canvas', 
-        nodes: nodes || [], 
-        edges: edges || [],
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' })
+      .upsert(upsertData, { onConflict: 'id' })
       .select()
       .single();
       
