@@ -174,7 +174,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   updateNodeData: (id, data) => {
     set({
       nodes: get().nodes.map((node) =>
-        node.id === id ? { ...node, data: { ...node.data, ...data } } : node
+        node.id === id
+          ? {
+              ...node,
+              // Apply positional/size updates directly on the node when present
+              ...(data.position ? { position: data.position } : {}),
+              ...(data.width !== undefined ? { width: data.width } : {}),
+              ...(data.height !== undefined ? { height: data.height } : {}),
+              data: { ...node.data, ...data },
+            }
+          : node
       ),
     });
   },
