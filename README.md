@@ -1,4 +1,4 @@
-# xAI Chorus
+# xAI Chorus - Winner of 2025 xAI Hackathon (General Track II)
 
 Chorus is a spatial reasoning interface for the age of AGI. It moves beyond the constraints of linear chat, offering an infinite canvas where thoughts, data, and AI models converge to solve complex problems.
 
