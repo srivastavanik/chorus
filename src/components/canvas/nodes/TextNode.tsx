@@ -88,6 +88,24 @@ const MODELS = [
     description: "Lightweight",
     supportsReasoning: false,
   },
+  {
+    id: "claude-sonnet-4-20250514",
+    name: "Claude Sonnet 4",
+    description: "Balanced speed and intelligence",
+    supportsReasoning: false,
+  },
+  {
+    id: "claude-opus-4-20250514",
+    name: "Claude Opus 4",
+    description: "Most capable Claude model",
+    supportsReasoning: false,
+  },
+  {
+    id: "claude-3-5-haiku-20241022",
+    name: "Claude 3.5 Haiku",
+    description: "Fastest Claude model",
+    supportsReasoning: false,
+  },
 ];
 
 // Extract numbered/bulleted items from text
