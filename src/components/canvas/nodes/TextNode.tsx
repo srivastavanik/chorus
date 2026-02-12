@@ -673,7 +673,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
           {showModelMenu && (
             <div
               ref={modelMenuRef}
-              className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] py-1 nodrag cursor-default"
+              className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] max-h-[320px] overflow-y-auto py-1 nodrag cursor-default"
             >
               {MODELS.map((m) => (
                 <button
