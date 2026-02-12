@@ -1,12 +1,15 @@
+import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { initLogger, wrapAnthropic } from 'braintrust';
+import { initLogger, wrapOpenAI, wrapAnthropic } from 'braintrust';
 
-const BRAINTRUST_PROXY_BASE_URL = 'https://api.braintrust.dev/v1/proxy';
 const XAI_BASE_URL = 'https://api.x.ai/v1';
 
-// Initialize Braintrust logger once at module load when the key is present.
+// ---------------------------------------------------------------------------
+// Braintrust logger (project-level tracing)
+// ---------------------------------------------------------------------------
+
 let _braintrustInitialized = false;
-function ensureBraintrustLogger(): void {
+export function ensureBraintrustLogger(): void {
   if (_braintrustInitialized) return;
   const apiKey = process.env.BRAINTRUST_API_KEY;
   if (!apiKey) return;
@@ -22,43 +25,29 @@ function ensureBraintrustLogger(): void {
 // Provider detection
 // ---------------------------------------------------------------------------
 
-const ANTHROPIC_MODEL_PREFIXES = ['claude-'];
-
 export function isAnthropicModel(model: string): boolean {
-  return ANTHROPIC_MODEL_PREFIXES.some((p) => model.startsWith(p));
+  return model.startsWith('claude-');
 }
 
 // ---------------------------------------------------------------------------
-// xAI / Braintrust-proxy config (OpenAI-compatible)
+// xAI config -- always hits xAI directly (no proxy).
+// Tracing is handled by wrapOpenAI on the SDK client, not by routing
+// through the Braintrust proxy (which requires storing provider keys in
+// Braintrust's secret vault).
 // ---------------------------------------------------------------------------
-
-function normalizeModelForBraintrust(model: string): string {
-  if (!model) return 'xai/grok-4-1-fast';
-  // Anthropic models go through as-is; xAI models get the xai/ prefix
-  if (isAnthropicModel(model)) return model;
-  return model.startsWith('xai/') ? model : `xai/${model}`;
-}
 
 export function getAiProviderConfig(model?: string): {
   baseUrl: string;
   apiKey: string;
   model: string;
 } {
-  const braintrustApiKey = process.env.BRAINTRUST_API_KEY;
   const xaiApiKey = process.env.XAI_API_KEY;
-
-  if (braintrustApiKey) {
-    ensureBraintrustLogger();
-    return {
-      baseUrl: BRAINTRUST_PROXY_BASE_URL,
-      apiKey: braintrustApiKey,
-      model: normalizeModelForBraintrust(model || 'grok-4-1-fast'),
-    };
-  }
-
   if (!xaiApiKey) {
-    throw new Error('Missing AI credentials: set BRAINTRUST_API_KEY or XAI_API_KEY');
+    throw new Error('Missing XAI_API_KEY environment variable');
   }
+
+  // Kick off Braintrust logger so SDK-wrapped calls are traced
+  ensureBraintrustLogger();
 
   return {
     baseUrl: XAI_BASE_URL,
@@ -73,7 +62,33 @@ export function getAiApiConfig(): { baseUrl: string; apiKey: string } {
 }
 
 // ---------------------------------------------------------------------------
-// Anthropic client (wrapped with Braintrust tracing when available)
+// Wrapped OpenAI client (xAI-compatible) -- Braintrust traces every call
+// ---------------------------------------------------------------------------
+
+let _xaiClient: OpenAI | null = null;
+
+export function getXaiClient(): OpenAI {
+  if (_xaiClient) return _xaiClient;
+
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing XAI_API_KEY environment variable');
+  }
+
+  const raw = new OpenAI({ apiKey, baseURL: XAI_BASE_URL });
+
+  if (process.env.BRAINTRUST_API_KEY) {
+    ensureBraintrustLogger();
+    _xaiClient = wrapOpenAI(raw);
+  } else {
+    _xaiClient = raw;
+  }
+
+  return _xaiClient;
+}
+
+// ---------------------------------------------------------------------------
+// Wrapped Anthropic client -- Braintrust traces every call
 // ---------------------------------------------------------------------------
 
 let _anthropicClient: Anthropic | null = null;
@@ -88,7 +103,6 @@ export function getAnthropicClient(): Anthropic {
 
   const raw = new Anthropic({ apiKey });
 
-  // If Braintrust is configured, wrap for automatic tracing
   if (process.env.BRAINTRUST_API_KEY) {
     ensureBraintrustLogger();
     _anthropicClient = wrapAnthropic(raw);
