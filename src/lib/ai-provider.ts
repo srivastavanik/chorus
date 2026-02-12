@@ -1,5 +1,22 @@
+import { initLogger } from 'braintrust';
+
 const BRAINTRUST_PROXY_BASE_URL = 'https://api.braintrust.dev/v1/proxy';
 const XAI_BASE_URL = 'https://api.x.ai/v1';
+
+// Initialize Braintrust logger once at module load when the key is present.
+// This is the piece that actually sends traces to the Braintrust dashboard.
+let _braintrustInitialized = false;
+function ensureBraintrustLogger(): void {
+  if (_braintrustInitialized) return;
+  const apiKey = process.env.BRAINTRUST_API_KEY;
+  if (!apiKey) return;
+
+  initLogger({
+    projectName: 'chorus',
+    apiKey,
+  });
+  _braintrustInitialized = true;
+}
 
 function normalizeModelForBraintrust(model: string): string {
   if (!model) return 'xai/grok-4-1-fast';
@@ -15,6 +32,7 @@ export function getAiProviderConfig(model?: string): {
   const xaiApiKey = process.env.XAI_API_KEY;
 
   if (braintrustApiKey) {
+    ensureBraintrustLogger();
     return {
       baseUrl: BRAINTRUST_PROXY_BASE_URL,
       apiKey: braintrustApiKey,
