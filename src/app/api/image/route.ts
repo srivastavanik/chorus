@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAiProviderConfig } from '@/lib/ai-provider';
 
 export const maxDuration = 60; // Increase timeout for generation
 
@@ -11,16 +12,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    const apiKey = process.env.XAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
-    }
+    const aiProvider = getAiProviderConfig(model || 'grok-2-image');
 
     // Determine if this is an edit or generation
     const isEdit = !!editImage;
-    const endpoint = isEdit 
-      ? 'https://api.x.ai/v1/images/edits'
-      : 'https://api.x.ai/v1/images/generations';
+    const endpoint = isEdit
+      ? `${aiProvider.baseUrl}/images/edits`
+      : `${aiProvider.baseUrl}/images/generations`;
 
     let response;
 
@@ -28,7 +26,7 @@ export async function POST(req: NextRequest) {
       // For edits, use FormData to handle large image data and avoid JSON limits
       const formData = new FormData();
       formData.append('prompt', prompt);
-      formData.append('model', model);
+      formData.append('model', aiProvider.model);
       formData.append('n', n.toString());
       formData.append('response_format', 'url');
       
@@ -47,7 +45,7 @@ export async function POST(req: NextRequest) {
       response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${aiProvider.apiKey}`,
           // Content-Type is set automatically
         },
         body: formData,
@@ -56,7 +54,7 @@ export async function POST(req: NextRequest) {
       // For generations, JSON is fine
       const requestBody: any = {
         prompt,
-        model: model,
+        model: aiProvider.model,
         n,
         response_format: 'url',
       };
@@ -69,7 +67,7 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${aiProvider.apiKey}`,
         },
         body: JSON.stringify(requestBody),
       });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getUserByToken } from '@/lib/auth-utils';
+import { getAiApiConfig } from '@/lib/ai-provider';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -73,9 +74,9 @@ export async function POST(req: Request) {
 
     // 2. Upload to xAI Files API (for Chat/Agentic capabilities)
     let xaiFileId = null;
-    const XAI_API_KEY = process.env.XAI_API_KEY;
-    if (XAI_API_KEY) {
+    if (process.env.BRAINTRUST_API_KEY || process.env.XAI_API_KEY) {
         try {
+            const aiProvider = getAiApiConfig();
             const xaiFormData = new FormData();
             // We need to re-create a Blob/File from buffer because we consumed it? 
             // Actually ArrayBuffer is reusable.
@@ -84,10 +85,10 @@ export async function POST(req: Request) {
             xaiFormData.append('file', blob, file.name); // Keep original name for xAI
             xaiFormData.append('purpose', 'assistants'); // Standard purpose
 
-            const xaiRes = await fetch('https://api.x.ai/v1/files', {
+            const xaiRes = await fetch(`${aiProvider.baseUrl}/files`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${XAI_API_KEY}`,
+                    'Authorization': `Bearer ${aiProvider.apiKey}`,
                     // Content-Type is set automatically by FormData
                 },
                 body: xaiFormData

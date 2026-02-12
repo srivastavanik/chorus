@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getUserByToken } from '@/lib/auth-utils';
-
-const XAI_API_KEY = process.env.XAI_API_KEY!;
-const XAI_BASE_URL = 'https://api.x.ai/v1';
+import { getAiProviderConfig } from '@/lib/ai-provider';
 
 export const maxDuration = 60; // Increase timeout for reasoning models
 
@@ -70,10 +68,11 @@ function processMessages(messages: any[], imageUrls?: string[]) {
 }
 
 async function handleChatCompletions(messages: any[], model: string, webSearch?: boolean, imageUrls?: string[]) {
+  const aiProvider = getAiProviderConfig(model || 'grok-4-1-fast');
   const processedMessages = processMessages(messages, imageUrls);
 
   const body: any = {
-    model: model || 'grok-4-1-fast',
+    model: aiProvider.model,
     messages: processedMessages,
     stream: true,
     temperature: 0.7,
@@ -86,11 +85,11 @@ async function handleChatCompletions(messages: any[], model: string, webSearch?:
     };
   }
 
-  const response = await fetch(`${XAI_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${aiProvider.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${XAI_API_KEY}`,
+      'Authorization': `Bearer ${aiProvider.apiKey}`,
     },
     body: JSON.stringify(body),
   });
@@ -105,6 +104,7 @@ async function handleChatCompletions(messages: any[], model: string, webSearch?:
 }
 
 async function handleAgenticResponse(messages: any[], model: string, attachedFileIds: string[], imageUrls?: string[]) {
+  const aiProvider = getAiProviderConfig(model || 'grok-4-1-fast');
   // Process images first if any
   const processedMessages = processMessages(messages, imageUrls);
   
@@ -154,17 +154,17 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
   });
 
   const body = {
-    model: model || 'grok-4-1-fast',
+    model: aiProvider.model,
     input: input,
     stream: true,
     temperature: 0.7
   };
 
-  const response = await fetch(`${XAI_BASE_URL}/responses`, {
+  const response = await fetch(`${aiProvider.baseUrl}/responses`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${XAI_API_KEY}`,
+      'Authorization': `Bearer ${aiProvider.apiKey}`,
     },
     body: JSON.stringify(body),
   });

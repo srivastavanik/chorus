@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-
-const XAI_API_KEY = process.env.XAI_API_KEY!;
-const XAI_BASE_URL = 'https://api.x.ai/v1';
+import { getAiApiConfig } from '@/lib/ai-provider';
 
 export async function POST(req: Request) {
   try {
+    const aiProvider = getAiApiConfig();
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const purpose = formData.get('purpose') || 'assistants';
@@ -23,10 +22,10 @@ export async function POST(req: Request) {
     xaiFormData.append('file', file);
     xaiFormData.append('purpose', purpose as string);
 
-    const response = await fetch(`${XAI_BASE_URL}/files`, {
+    const response = await fetch(`${aiProvider.baseUrl}/files`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${XAI_API_KEY}`,
+        'Authorization': `Bearer ${aiProvider.apiKey}`,
         // Do not set Content-Type manually for FormData, fetch does it with boundary
       },
       body: xaiFormData,

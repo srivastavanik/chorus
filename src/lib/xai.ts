@@ -1,7 +1,10 @@
 import OpenAI from 'openai';
+import { getAiProviderConfig } from '@/lib/ai-provider';
+
+const aiProvider = getAiProviderConfig('grok-4-1-fast');
 
 export const xai = new OpenAI({
-  apiKey: process.env.XAI_API_KEY || 'dummy', // Should be in env
-  baseURL: 'https://api.x.ai/v1',
+  apiKey: aiProvider.apiKey,
+  baseURL: aiProvider.baseUrl,
 });
 
