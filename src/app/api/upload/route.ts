@@ -73,8 +73,9 @@ export async function POST(req: Request) {
     }
 
     // 2. Upload to xAI Files API (for Chat/Agentic capabilities)
+    // Braintrust/tracing configuration must not enable forwarding uploaded file contents.
     let xaiFileId = null;
-    if (process.env.BRAINTRUST_API_KEY || process.env.XAI_API_KEY) {
+    if (process.env.XAI_API_KEY) {
         try {
             const aiProvider = getAiApiConfig();
             const xaiFormData = new FormData();
