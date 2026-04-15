@@ -9,10 +9,14 @@ const XAI_BASE_URL = 'https://api.x.ai/v1';
 // ---------------------------------------------------------------------------
 
 let _braintrustInitialized = false;
+function isBraintrustSdkWrappingEnabled(): boolean {
+  return process.env.BRAINTRUST_ENABLE_SDK_WRAPPING === 'true';
+}
+
 export function ensureBraintrustLogger(): void {
   if (_braintrustInitialized) return;
   const apiKey = process.env.BRAINTRUST_API_KEY;
-  if (!apiKey) return;
+  if (!apiKey || !isBraintrustSdkWrappingEnabled()) return;
 
   initLogger({
     projectName: 'chorus',
@@ -77,7 +81,7 @@ export function getXaiClient(): OpenAI {
 
   const raw = new OpenAI({ apiKey, baseURL: XAI_BASE_URL });
 
-  if (process.env.BRAINTRUST_API_KEY) {
+  if (process.env.BRAINTRUST_API_KEY && isBraintrustSdkWrappingEnabled()) {
     ensureBraintrustLogger();
     _xaiClient = wrapOpenAI(raw);
   } else {
@@ -103,7 +107,7 @@ export function getAnthropicClient(): Anthropic {
 
   const raw = new Anthropic({ apiKey });
 
-  if (process.env.BRAINTRUST_API_KEY) {
+  if (process.env.BRAINTRUST_API_KEY && isBraintrustSdkWrappingEnabled()) {
     ensureBraintrustLogger();
     _anthropicClient = wrapAnthropic(raw);
   } else {
