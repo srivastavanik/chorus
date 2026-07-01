@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // For generations, JSON is fine
-      const requestBody: any = {
+      const requestBody: Record<string, unknown> = {
         prompt,
         model: aiProvider.model,
         n,

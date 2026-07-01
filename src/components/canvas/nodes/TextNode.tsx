@@ -433,7 +433,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       const allMessages = [...context, ...nodeMessages];
 
       // Prepare payload
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         messages: allMessages,
         model,
         webSearch,

@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { initLogger, wrapOpenAI, wrapAnthropic } from 'braintrust';
+import { initLogger, wrapOpenAI, wrapAnthropic, setMaskingFunction } from 'braintrust';
 
 const XAI_BASE_URL = 'https://api.x.ai/v1';
 
@@ -13,6 +13,69 @@ function isBraintrustSdkWrappingEnabled(): boolean {
   return process.env.BRAINTRUST_ENABLE_SDK_WRAPPING === 'true';
 }
 
+// Raw prompt/response logging is opt-in and should only be enabled in
+// environments explicitly approved for storing user content in the shared
+// Braintrust project.
+function isRawContentLoggingAllowed(): boolean {
+  return process.env.BRAINTRUST_LOG_RAW_CONTENT === 'true';
+}
+
+const REDACTED = '[REDACTED]';
+
+// Field names whose values may carry raw prompts, model outputs, uploaded file
+// contents, citations, signed URLs, or other tenant-sensitive payloads.
+const SENSITIVE_KEYS = new Set<string>([
+  'messages',
+  'message',
+  'input',
+  'input_text',
+  'input_image',
+  'input_file',
+  'content',
+  'output',
+  'output_text',
+  'text',
+  'prompt',
+  'completion',
+  'reasoning',
+  'reasoning_content',
+  'thinking',
+  'delta',
+  'image_url',
+  'file_id',
+  'citations',
+  'arguments',
+  'tool_calls',
+  'system',
+  'b64_json',
+  'audio',
+  'refusal',
+  'data',
+  'url',
+  'source',
+]);
+
+function redactValue(value: unknown, depth = 0): unknown {
+  if (value == null || depth > 12) return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => redactValue(item, depth + 1));
+  }
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = SENSITIVE_KEYS.has(key) ? REDACTED : redactValue(val, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
+// Masking function applied by Braintrust to every record before export. Keeps
+// non-sensitive metadata (model, usage, latency) while stripping content.
+function redactSensitiveData(value: unknown): unknown {
+  return redactValue(value);
+}
+
 export function ensureBraintrustLogger(): void {
   if (_braintrustInitialized) return;
   const apiKey = process.env.BRAINTRUST_API_KEY;
@@ -22,6 +85,13 @@ export function ensureBraintrustLogger(): void {
     projectName: 'chorus',
     apiKey,
   });
+
+  // Default to metadata-only export. Redact prompts/responses/file contents
+  // unless an operator explicitly opts in for an approved environment.
+  if (!isRawContentLoggingAllowed()) {
+    setMaskingFunction(redactSensitiveData);
+  }
+
   _braintrustInitialized = true;
 }
 

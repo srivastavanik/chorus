@@ -124,3 +124,24 @@ CREATE INDEX IF NOT EXISTS idx_canvas_collaborators_user_id ON public.canvas_col
 ALTER TABLE public.canvas_shares DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canvas_versions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canvas_collaborators DISABLE ROW LEVEL SECURITY;
+
+-- ========== FILE UPLOAD OWNERSHIP ==========
+
+-- 15. Track ownership of provider (xAI) file uploads so the chat/agentic
+-- route can authorize each attachment against the authenticated user before
+-- the server asks the model to read it.
+CREATE TABLE IF NOT EXISTS public.file_uploads (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  xai_file_id TEXT NOT NULL UNIQUE,
+  filename TEXT,
+  mime_type TEXT,
+  size_bytes BIGINT,
+  storage_path TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_uploads_user_id ON public.file_uploads(user_id);
+CREATE INDEX IF NOT EXISTS idx_file_uploads_xai_file_id ON public.file_uploads(xai_file_id);
+
+ALTER TABLE public.file_uploads DISABLE ROW LEVEL SECURITY;

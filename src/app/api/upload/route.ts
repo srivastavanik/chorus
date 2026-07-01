@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUserByToken } from '@/lib/auth-utils';
 import { getAiApiConfig } from '@/lib/ai-provider';
+import { recordUploadedFile } from '@/lib/file-uploads';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -104,6 +105,26 @@ export async function POST(req: Request) {
         } catch (xaiError) {
             console.error('xAI Upload exception:', xaiError);
         }
+    }
+
+    // Record ownership so the chat/agentic route can authorize this file id
+    // against the authenticated user. If ownership cannot be recorded, do not
+    // hand the provider file id back to the client (fail closed): the file
+    // still exists in storage for display, but it will not be attachable.
+    if (xaiFileId) {
+      try {
+        await recordUploadedFile({
+          userId: user.id,
+          xaiFileId,
+          filename: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          storagePath: filePath,
+        });
+      } catch (ownershipError) {
+        console.error('File ownership record failed:', ownershipError);
+        xaiFileId = null;
+      }
     }
 
     return NextResponse.json({ 

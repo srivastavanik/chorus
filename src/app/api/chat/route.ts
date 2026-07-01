@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getUserByToken } from '@/lib/auth-utils';
+import { getUnauthorizedFileIds } from '@/lib/file-uploads';
 import {
   getAiProviderConfig,
   getXaiClient,
@@ -8,6 +9,61 @@ import {
 } from '@/lib/ai-provider';
 
 export const maxDuration = 60; // Increase timeout for reasoning models
+
+// ---------------------------------------------------------------------------
+// Message / streaming shapes
+// ---------------------------------------------------------------------------
+
+type ChatRole = 'system' | 'user' | 'assistant';
+
+interface TextContentPart {
+  type: 'text';
+  text: string;
+}
+
+interface ImageUrlContentPart {
+  type: 'image_url';
+  image_url: { url: string; detail?: string };
+}
+
+type ContentPart =
+  | TextContentPart
+  | ImageUrlContentPart
+  | { type: string; [key: string]: unknown };
+
+interface ChatMessage {
+  role: ChatRole | string;
+  content: string | ContentPart[];
+}
+
+interface AnthropicMessage {
+  role: 'user' | 'assistant';
+  content: string | unknown[];
+}
+
+interface OpenAIStreamDelta {
+  content?: string;
+  reasoning_content?: string;
+}
+
+interface OpenAIStreamChunk {
+  choices?: Array<{ delta?: OpenAIStreamDelta }>;
+  citations?: unknown;
+}
+
+interface AnthropicStreamDelta {
+  type?: string;
+  text?: string;
+  thinking?: string;
+}
+
+interface AgenticEvent {
+  type?: string;
+  delta?: { text?: string; reasoning_content?: string };
+  response?: {
+    output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -26,7 +82,7 @@ export async function POST(req: Request) {
     }
 
     if (attachedFileIds && attachedFileIds.length > 0) {
-      return handleAgenticResponse(messages, model, attachedFileIds, imageUrls);
+      return handleAgenticResponse(user.id, messages, model, attachedFileIds, imageUrls);
     } else {
       return handleChatCompletions(messages, model, webSearch, imageUrls);
     }
@@ -43,7 +99,7 @@ export async function POST(req: Request) {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function processMessages(messages: any[], imageUrls?: string[]) {
+function processMessages(messages: ChatMessage[], imageUrls?: string[]): ChatMessage[] {
   const processed = [...messages];
 
   if (imageUrls && imageUrls.length > 0) {
@@ -52,7 +108,7 @@ function processMessages(messages: any[], imageUrls?: string[]) {
       const lastMsg = processed[lastUserIndex];
       const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
 
-      const newContent: any[] = [];
+      const newContent: ContentPart[] = [];
 
       imageUrls.forEach(url => {
         newContent.push({
@@ -72,12 +128,12 @@ function processMessages(messages: any[], imageUrls?: string[]) {
   return processed;
 }
 
-function toAnthropicMessages(messages: any[], imageUrls?: string[]): {
+function toAnthropicMessages(messages: ChatMessage[], imageUrls?: string[]): {
   system: string | undefined;
-  messages: Array<{ role: 'user' | 'assistant'; content: string | any[] }>;
+  messages: AnthropicMessage[];
 } {
   let system: string | undefined;
-  const out: Array<{ role: 'user' | 'assistant'; content: string | any[] }> = [];
+  const out: AnthropicMessage[] = [];
 
   for (const m of messages) {
     if (m.role === 'system') {
@@ -85,7 +141,7 @@ function toAnthropicMessages(messages: any[], imageUrls?: string[]): {
       continue;
     }
     const role = m.role === 'assistant' ? ('assistant' as const) : ('user' as const);
-    out.push({ role, content: typeof m.content === 'string' ? m.content : m.content });
+    out.push({ role, content: m.content });
   }
 
   if (imageUrls && imageUrls.length > 0 && out.length > 0) {
@@ -94,7 +150,7 @@ function toAnthropicMessages(messages: any[], imageUrls?: string[]): {
       const existing =
         typeof out[lastIdx].content === 'string'
           ? [{ type: 'text' as const, text: out[lastIdx].content as string }]
-          : (out[lastIdx].content as any[]);
+          : (out[lastIdx].content as unknown[]);
 
       const imageBlocks = imageUrls.map(url => ({
         type: 'image' as const,
@@ -112,7 +168,7 @@ function toAnthropicMessages(messages: any[], imageUrls?: string[]): {
 // Anthropic (Claude) handler -- traced via wrapAnthropic
 // ---------------------------------------------------------------------------
 
-async function handleAnthropicChat(messages: any[], model: string, imageUrls?: string[]) {
+async function handleAnthropicChat(messages: ChatMessage[], model: string, imageUrls?: string[]) {
   const client = getAnthropicClient();
   const { system, messages: anthropicMessages } = toAnthropicMessages(messages, imageUrls);
 
@@ -123,14 +179,15 @@ async function handleAnthropicChat(messages: any[], model: string, imageUrls?: s
     max_tokens: 4096,
     ...(system ? { system } : {}),
     messages: anthropicMessages,
-  });
+  } as unknown as Parameters<typeof client.messages.stream>[0]);
 
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        for await (const event of stream) {
-          if (event.type === 'content_block_delta') {
-            const delta = event.delta as any;
+        for await (const rawEvent of stream) {
+          const event = rawEvent as { type?: string; delta?: AnthropicStreamDelta };
+          if (event.type === 'content_block_delta' && event.delta) {
+            const delta = event.delta;
             if (delta.type === 'text_delta' && delta.text) {
               controller.enqueue(
                 encoder.encode(JSON.stringify({ type: 'content', content: delta.text }) + '\n'),
@@ -168,7 +225,7 @@ async function handleAnthropicChat(messages: any[], model: string, imageUrls?: s
 // ---------------------------------------------------------------------------
 
 async function handleChatCompletions(
-  messages: any[],
+  messages: ChatMessage[],
   model: string,
   webSearch?: boolean,
   imageUrls?: string[],
@@ -192,13 +249,15 @@ async function handleChatCompletions(
 
   // The wrapOpenAI wrapper intercepts this call and logs input/output to
   // Braintrust automatically. Cast to get the streaming async iterator type.
-  const stream = (await client.chat.completions.create(params as any)) as unknown as AsyncIterable<any>;
+  const stream = (await client.chat.completions.create(
+    params as unknown as Parameters<typeof client.chat.completions.create>[0],
+  )) as unknown as AsyncIterable<OpenAIStreamChunk>;
 
   const readable = new ReadableStream({
     async start(controller) {
       try {
         for await (const chunk of stream) {
-          const delta = chunk.choices?.[0]?.delta as any;
+          const delta = chunk.choices?.[0]?.delta;
           if (!delta) continue;
 
           if (delta.reasoning_content) {
@@ -216,10 +275,9 @@ async function handleChatCompletions(
           }
 
           // xAI returns citations at the chunk level
-          const raw = chunk as any;
-          if (raw.citations) {
+          if (chunk.citations) {
             controller.enqueue(
-              encoder.encode(JSON.stringify({ type: 'done', citations: raw.citations }) + '\n'),
+              encoder.encode(JSON.stringify({ type: 'done', citations: chunk.citations }) + '\n'),
             );
           }
         }
@@ -246,17 +304,29 @@ async function handleChatCompletions(
 // ---------------------------------------------------------------------------
 
 async function handleAgenticResponse(
-  messages: any[],
+  userId: string,
+  messages: ChatMessage[],
   model: string,
   attachedFileIds: string[],
   imageUrls?: string[],
 ) {
+  // Authorize every requested attachment against server-side upload metadata
+  // before the server uses its API key to have the model read the file. This
+  // prevents an authenticated user from referencing another user's file id.
+  const unauthorized = await getUnauthorizedFileIds(userId, attachedFileIds);
+  if (unauthorized.length > 0) {
+    return NextResponse.json(
+      { error: 'One or more attached files are not authorized for this user' },
+      { status: 403 },
+    );
+  }
+
   const aiProvider = getAiProviderConfig(model || 'grok-4-1-fast');
   const processedMessages = processMessages(messages, imageUrls);
 
-  const input = processedMessages.map((m: any, index: number) => {
+  const input = processedMessages.map((m, index) => {
     if (index === processedMessages.length - 1 && m.role === 'user' && attachedFileIds.length > 0) {
-      const contentArray: any[] = [];
+      const contentArray: Record<string, unknown>[] = [];
 
       attachedFileIds.forEach(fileId => {
         contentArray.push({ type: 'input_file', file_id: fileId });
@@ -266,7 +336,7 @@ async function handleAgenticResponse(
         typeof m.content === 'string'
           ? m.content
           : Array.isArray(m.content)
-            ? m.content.find((c: any) => c.type === 'text')?.text || ''
+            ? (m.content.find(c => c.type === 'text') as TextContentPart | undefined)?.text || ''
             : '';
 
       if (textContent) {
@@ -274,12 +344,13 @@ async function handleAgenticResponse(
       }
 
       if (Array.isArray(m.content)) {
-        m.content.forEach((c: any) => {
+        m.content.forEach(c => {
           if (c.type === 'image_url') {
+            const img = c as ImageUrlContentPart;
             contentArray.push({
               type: 'input_image',
-              image_url: c.image_url.url,
-              detail: c.image_url.detail || 'high',
+              image_url: img.image_url.url,
+              detail: img.image_url.detail || 'high',
             });
           }
         });
@@ -334,7 +405,7 @@ function streamAgenticResponse(response: Response) {
       for (const line of lines) {
         if (line.startsWith('data: ') && line !== 'data: [DONE]') {
           try {
-            const data = JSON.parse(line.slice(6));
+            const data = JSON.parse(line.slice(6)) as AgenticEvent;
             const eventType = data.type;
 
             if (eventType === 'response.content_part.delta' && data.delta?.text) {
@@ -372,7 +443,7 @@ function streamAgenticResponse(response: Response) {
               }
               controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
             }
-          } catch (_e) {
+          } catch {
             // Skip parse errors
           }
         } else if (line === 'data: [DONE]') {
@@ -384,7 +455,7 @@ function streamAgenticResponse(response: Response) {
       if (buffer.trim()) {
         try {
           if (buffer.startsWith('data: ') && buffer !== 'data: [DONE]') {
-            const data = JSON.parse(buffer.slice(6));
+            const data = JSON.parse(buffer.slice(6)) as AgenticEvent;
             if (data.delta?.text) {
               controller.enqueue(
                 encoder.encode(
@@ -393,7 +464,7 @@ function streamAgenticResponse(response: Response) {
               );
             }
           }
-        } catch (_e) {
+        } catch {
           // Skip
         }
       }
