@@ -113,7 +113,7 @@ export async function POST(req: Request) {
     }
 
     const supabase = getSupabaseAdmin();
-    const { isOwner, canEdit } = await hasCanvasAccess(supabase, canvasId, user.id);
+    const { canEdit } = await hasCanvasAccess(supabase, canvasId, user.id);
 
     if (!canEdit) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });

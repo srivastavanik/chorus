@@ -44,20 +44,20 @@ export interface CanvasState {
   nodes: Node[];
   edges: Edge[];
   stableCanvasState: { nodes: CanvasNode[]; edges: Edge[] } | null;
-  user: any | null;
+  user: unknown;
   selectedNodeId: string | null;
   saveStatus: "idle" | "saving" | "saved" | "error";
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  setUser: (user: any) => void;
+  setUser: (user: unknown) => void;
   setCanvasId: (id: string | null) => void;
   setCanvasName: (name: string | null) => void;
   addNode: (
     type: NodeType,
     position?: XYPosition,
     parentId?: string,
-    data?: any
+    data?: Record<string, unknown>
   ) => string;
   deleteNode: (id: string) => void;
   duplicateNode: (id: string) => string;
@@ -67,7 +67,7 @@ export interface CanvasState {
     dropPosition?: XYPosition,
     nodeType?: NodeType
   ) => string;
-  updateNodeData: (id: string, data: Partial<any>) => void;
+  updateNodeData: (id: string, data: Record<string, unknown>) => void;
   updateNodeContent: (id: string, content: string) => void;
   updateNodeType: (id: string, newType: NodeType) => void;
   addMessageToNode: (id: string, message: ChatMessage) => void;
@@ -102,7 +102,6 @@ export interface CanvasState {
 
 const NODE_WIDTH = 480;
 const NODE_HEIGHT = 450;
-const PADDING = 100;
 
 const findEmptyPosition = (
   nodes: Node[],
@@ -185,11 +184,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         node.id === id
           ? {
               ...node,
-              ...(data.type ? { type: data.type } : {}),
+              ...(data.type ? { type: data.type as NodeType } : {}),
               // Apply positional/size updates directly on the node when present
-              ...(data.position ? { position: data.position } : {}),
-              ...(data.width !== undefined ? { width: data.width } : {}),
-              ...(data.height !== undefined ? { height: data.height } : {}),
+              ...(data.position ? { position: data.position as XYPosition } : {}),
+              ...(data.width !== undefined ? { width: data.width as number } : {}),
+              ...(data.height !== undefined ? { height: data.height as number } : {}),
               data: { ...node.data, ...data },
             }
           : node
@@ -430,7 +429,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     // Determine width and data based on node type
     let width = 450;
-    let data: any = { messages: [], label: "" };
+    let data: Record<string, unknown> = { messages: [], label: "" };
     if (nodeType === "image") {
       width = 400;
       data = { label: "Image Generation" };
@@ -664,13 +663,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const sanitizedNodes = nodes.map((node) => {
         if (node.type === "file" && node.data?.fileData && typeof node.data.fileData === "string" && node.data.fileData.startsWith("data:")) {
           // Create a shallow copy of data without the large fileData
-          const { fileData, ...restData } = node.data;
+          const restData = { ...node.data };
+          delete restData.fileData;
           return { ...node, data: restData };
         }
         return node;
       });
 
-      const payload: any = { id, nodes: sanitizedNodes, edges };
+      const payload: Record<string, unknown> = { id, nodes: sanitizedNodes, edges };
       // Prefer passed name, then state name, then undefined (which lets backend decide or keep existing)
       if (name) {
         payload.name = name;

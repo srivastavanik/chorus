@@ -12,6 +12,7 @@ import {
   ReactFlowProvider,
   Node,
   OnConnectStartParams,
+  Connection,
 } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
 import "@xyflow/react/dist/style.css";
@@ -43,11 +44,11 @@ const edgeTypes = {
   bezier: BezierEdge,
 };
 
-import { CollaboratorColor } from "@/lib/collaboration";
+import { Collaborator, CollaboratorColor } from "@/lib/collaboration";
 
 interface CanvasContentProps {
   onCanvasSelect?: (id: string | null) => void;
-  onCollaboratorsChange?: (collaborators: any[]) => void;
+  onCollaboratorsChange?: (collaborators: Collaborator[]) => void;
   onMyColorChange?: (color: CollaboratorColor) => void;
   onSetMyColor?: (setFn: (color: CollaboratorColor) => void) => void;
 }
@@ -238,7 +239,7 @@ function CanvasContentInner({
 
   // Wrap onConnect to broadcast edge connections
   const handleConnect = useCallback(
-    (connection: any) => {
+    (connection: Connection) => {
       const edgesBefore = useCanvasStore.getState().edges;
       onConnect(connection);
       // Broadcast the newly created edge (incremental)
@@ -615,7 +616,7 @@ export default function Canvas({
   onSetMyColor,
 }: {
   onCanvasSelect?: (id: string | null) => void;
-  onCollaboratorsChange?: (collaborators: any[]) => void;
+  onCollaboratorsChange?: (collaborators: Collaborator[]) => void;
   onMyColorChange?: (color: CollaboratorColor) => void;
   onSetMyColor?: (setFn: (color: CollaboratorColor) => void) => void;
 }) {

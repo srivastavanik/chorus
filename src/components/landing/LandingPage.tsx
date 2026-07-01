@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { AuthModal } from '@/components/auth/AuthModal';
-import { Button } from '@/components/ui/Button';
 import Image from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -10,17 +9,12 @@ import Lenis from 'lenis';
 import { LongExposureBackground } from './LongExposureBackground';
 
 export function LandingPage() {
-  const [showAuth, setShowAuth] = useState(false);
+  const [showAuth, setShowAuth] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !!new URLSearchParams(window.location.search).get('redirect');
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
-  
-  // Check for redirect query param
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.get('redirect')) {
-      setShowAuth(true);
-    }
-  }, []);
 
   // Initialize GSAP and Lenis
   useLayoutEffect(() => {
@@ -41,7 +35,6 @@ export function LandingPage() {
     requestAnimationFrame(raf);
 
     // Text Reveal Animation
-    const shutterTexts = document.querySelectorAll('.shutter-text');
     // Simulate "loaded" class on body
     setTimeout(() => {
       document.body.classList.add('loaded');
@@ -157,11 +150,11 @@ export function LandingPage() {
     const script = document.createElement('script');
     script.src = "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.29/dist/unicornStudio.umd.js";
     script.onload = () => {
-      // @ts-ignore
+      // @ts-expect-error UnicornStudio is injected by an external CDN script
       if (window.UnicornStudio && !window.UnicornStudio.isInitialized) {
-        // @ts-ignore
+        // @ts-expect-error UnicornStudio is injected by an external CDN script
         window.UnicornStudio.init();
-        // @ts-ignore
+        // @ts-expect-error UnicornStudio is injected by an external CDN script
         window.UnicornStudio.isInitialized = true;
       }
     };

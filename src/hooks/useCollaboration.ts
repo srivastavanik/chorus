@@ -32,6 +32,18 @@ interface PresencePayload {
   activeNodeId: string | null;
 }
 
+interface BroadcastData {
+  nodeId?: string;
+  node?: CanvasNode;
+  nodes?: Node[];
+  edge?: Edge;
+  edges?: Edge[];
+  edgeId?: string;
+  updates?: Record<string, unknown>;
+  cursor?: { x: number; y: number } | null;
+  title?: string;
+}
+
 interface BroadcastPayload {
   type:
     | "node:update"
@@ -43,7 +55,7 @@ interface BroadcastPayload {
     | "full_sync"
     | "title:update";
   userId: string;
-  data: any;
+  data: BroadcastData;
   timestamp?: number; // For conflict resolution
 }
 
@@ -95,8 +107,8 @@ function mergeNodes(
       }
     } else {
       // Node exists in both - merge data, preferring more complete version
-      const localMessages = (localNode.data?.messages as any[]) || [];
-      const serverMessages = (serverNode.data?.messages as any[]) || [];
+      const localMessages = (localNode.data?.messages as unknown[]) || [];
+      const serverMessages = (serverNode.data?.messages as unknown[]) || [];
 
       // Keep whichever has more messages, or local if equal (has latest user input)
       if (localMessages.length >= serverMessages.length) {
@@ -177,9 +189,6 @@ export function useCollaboration({
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const setNodes = useCanvasStore((state) => state.setNodes);
   const setEdges = useCanvasStore((state) => state.setEdges);
-  const stableCanvasState = useCanvasStore((state) => state.stableCanvasState);
-  const nodes = useCanvasStore((state) => state.nodes);
-  const edges = useCanvasStore((state) => state.edges);
 
   // Track last local change time to prevent server sync from overwriting recent local changes
   const lastLocalChangeRef = useRef<number>(0);
@@ -247,7 +256,7 @@ export function useCollaboration({
     });
 
     // Handle presence join
-    channel.on("presence", { event: "join" }, ({ key, newPresences }) => {
+    channel.on("presence", { event: "join" }, ({ key }) => {
       if (key === userId) return;
       console.log("[Collab] User joined:", key);
     });
@@ -280,38 +289,40 @@ export function useCollaboration({
         case "node:create":
           // Incremental add - merge new node into existing nodes
           if (data.node) {
+            const createdNode = data.node;
             // Track this as a known remote node - NEVER delete it in sync
-            knownRemoteNodeIdsRef.current.add(data.node.id);
+            knownRemoteNodeIdsRef.current.add(createdNode.id);
 
             const currentNodes = useCanvasStore.getState().nodes;
-            const exists = currentNodes.some((n) => n.id === data.node.id);
+            const exists = currentNodes.some((n) => n.id === createdNode.id);
             if (!exists) {
               // Mark as pending (received via broadcast, not yet on server)
-              pendingNodeIdsRef.current.add(data.node.id);
+              pendingNodeIdsRef.current.add(createdNode.id);
               // Add with createdAt timestamp if not present
               const nodeWithTimestamp = {
-                ...data.node,
-                createdAt: data.node.createdAt || Date.now(),
+                ...createdNode,
+                createdAt: createdNode.createdAt || Date.now(),
               };
               setNodes([...currentNodes, nodeWithTimestamp]);
-              console.log("[Collab] Added node from broadcast:", data.node.id);
+              console.log("[Collab] Added node from broadcast:", createdNode.id);
 
               // Auto-clear from pending after grace period
               setTimeout(() => {
-                pendingNodeIdsRef.current.delete(data.node.id);
+                pendingNodeIdsRef.current.delete(createdNode.id);
               }, NODE_GRACE_PERIOD_MS);
             }
           }
           // Also handle edges if provided
           if (data.edge) {
+            const createdEdge = data.edge;
             const currentEdges = useCanvasStore.getState().edges;
-            const edgeExists = currentEdges.some((e) => e.id === data.edge.id);
+            const edgeExists = currentEdges.some((e) => e.id === createdEdge.id);
             if (!edgeExists) {
-              pendingEdgeIdsRef.current.add(data.edge.id);
-              setEdges([...currentEdges, data.edge]);
+              pendingEdgeIdsRef.current.add(createdEdge.id);
+              setEdges([...currentEdges, createdEdge]);
 
               setTimeout(() => {
-                pendingEdgeIdsRef.current.delete(data.edge.id);
+                pendingEdgeIdsRef.current.delete(createdEdge.id);
               }, NODE_GRACE_PERIOD_MS);
             }
           }
@@ -382,19 +393,20 @@ export function useCollaboration({
         case "edge:create":
           // Incremental edge add
           if (data.edge) {
+            const createdEdge = data.edge;
             const currentEdges = useCanvasStore.getState().edges;
-            const exists = currentEdges.some((e) => e.id === data.edge.id);
+            const exists = currentEdges.some((e) => e.id === createdEdge.id);
             if (!exists) {
-              pendingEdgeIdsRef.current.add(data.edge.id);
-              setEdges([...currentEdges, data.edge]);
+              pendingEdgeIdsRef.current.add(createdEdge.id);
+              setEdges([...currentEdges, createdEdge]);
 
               setTimeout(() => {
-                pendingEdgeIdsRef.current.delete(data.edge.id);
+                pendingEdgeIdsRef.current.delete(createdEdge.id);
               }, NODE_GRACE_PERIOD_MS);
             }
           } else if (data.edges) {
             // Fallback for legacy broadcasts - mark all as pending
-            data.edges.forEach((e: any) => pendingEdgeIdsRef.current.add(e.id));
+            data.edges.forEach((e) => pendingEdgeIdsRef.current.add(e.id));
             setEdges(data.edges);
           }
           break;
@@ -483,7 +495,7 @@ export function useCollaboration({
         if (res.ok) {
           const data = await res.json();
           const canvas = Array.isArray(data)
-            ? data.find((c: any) => c.id === canvasId)
+            ? data.find((c: { id: string }) => c.id === canvasId)
             : data;
           if (canvas) {
             const serverNodes: Node[] =
@@ -564,7 +576,7 @@ export function useCollaboration({
 
   // Broadcast a change to all collaborators
   const broadcast = useCallback(
-    (type: BroadcastPayload["type"], data: any) => {
+    (type: BroadcastPayload["type"], data: Record<string, unknown>) => {
       if (!channelRef.current || !userId) return;
 
     // Track that we made a local change (ignore cursor to keep server sync running)
@@ -573,8 +585,9 @@ export function useCollaboration({
     }
 
       // If creating a node, track its ID
-      if (type === "node:create" && data.node?.id) {
-        knownRemoteNodeIdsRef.current.add(data.node.id);
+      const createdNode = data.node as CanvasNode | undefined;
+      if (type === "node:create" && createdNode?.id) {
+        knownRemoteNodeIdsRef.current.add(createdNode.id);
       }
 
     // Avoid REST fallback by only sending when joined

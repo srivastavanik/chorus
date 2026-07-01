@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { X, Copy, Check, Globe, Lock, Eye, Edit, Link2 } from "lucide-react";
 import { getShareUrl, SharePermission } from "@/lib/collaboration";
 
@@ -26,13 +26,7 @@ export function ShareModal({ canvasId, isOpen, onClose }: ShareModalProps) {
   const [permission, setPermission] = useState<SharePermission>("view");
   const [isPublic, setIsPublic] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && canvasId) {
-      fetchShareSettings();
-    }
-  }, [isOpen, canvasId]);
-
-  const fetchShareSettings = async () => {
+  const fetchShareSettings = useCallback(async () => {
     try {
       const res = await fetch(`/api/canvas/share?canvasId=${canvasId}`);
       const data = await res.json();
@@ -45,7 +39,13 @@ export function ShareModal({ canvasId, isOpen, onClose }: ShareModalProps) {
     } catch (e) {
       console.error("Failed to fetch share settings:", e);
     }
-  };
+  }, [canvasId]);
+
+  useEffect(() => {
+    if (isOpen && canvasId) {
+      fetchShareSettings();
+    }
+  }, [isOpen, canvasId, fetchShareSettings]);
 
   const handleCreateOrUpdate = async () => {
     setLoading(true);

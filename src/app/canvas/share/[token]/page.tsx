@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { NavBar } from '@/components/layout/NavBar';
 import Canvas from '@/components/canvas/Canvas';
 import { useCanvasStore } from '@/lib/store';
+import { Collaborator } from '@/lib/collaboration';
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -15,8 +16,8 @@ interface ShareData {
   canvas: {
     id: string;
     name: string;
-    nodes: any;
-    edges: any;
+    nodes: unknown;
+    edges: unknown;
   };
   share: {
     permission: 'view' | 'edit';
@@ -34,7 +35,7 @@ export default function SharedCanvasPage({ params }: PageProps) {
   const [shareData, setShareData] = useState<ShareData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   // Force auth if not logged in
   useEffect(() => {
@@ -80,7 +81,7 @@ export default function SharedCanvasPage({ params }: PageProps) {
           setEdges(edges || []);
           setSelectedNodeId(null);
         }
-      } catch (e) {
+      } catch {
         if (!isCancelled) setError('Failed to load canvas');
       } finally {
         if (!isCancelled) setIsLoading(false);

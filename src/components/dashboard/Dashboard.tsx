@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Clock, Image as ImageIcon, FileText, ChevronRight, Search, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
-import { useRouter } from 'next/navigation';
-import { useCanvasStore } from '@/lib/store';
 
 interface Canvas {
   id: string;
@@ -23,6 +21,29 @@ interface FileItem {
   url: string; // Signed URL
 }
 
+interface SummaryNode {
+  type?: string;
+  data?: {
+    messages?: { content?: string }[];
+  };
+}
+
+type CanvasWithNodes = Canvas & { nodes?: SummaryNode[] };
+
+// Helper to generate a mock summary based on node content
+function generateMockSummary(nodes?: SummaryNode[]) {
+  if (!nodes || nodes.length === 0) return "Empty canvas";
+  const textNodes = nodes.filter((n) => n.type === 'text');
+  if (textNodes.length === 0) return "Visual exploration";
+
+  // Try to find a prompt
+  const firstMsg = textNodes[0]?.data?.messages?.[0]?.content;
+  if (firstMsg) {
+    return firstMsg.substring(0, 60) + (firstMsg.length > 60 ? "..." : "");
+  }
+  return "Brainstorming session";
+}
+
 export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) => void }) {
   const { user } = useAuth();
   const [canvases, setCanvases] = useState<Canvas[]>([]);
@@ -32,6 +53,34 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
   // We'll use local storage for "Recent Generated Images" for this MVP
   const [recentImages, setRecentImages] = useState<{url: string, prompt: string}[]>([]);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [canvasesRes] = await Promise.all([
+        fetch('/api/canvas'),
+      ]);
+      
+      if (canvasesRes.ok) {
+        const data = await canvasesRes.json();
+        // Add mock summaries
+        const enhancedData = data.map((c: CanvasWithNodes) => ({
+            ...c,
+            summary: generateMockSummary(c.nodes)
+        }));
+        setCanvases(enhancedData);
+      }
+      
+      const filesRes = await fetch('/api/files');
+      if (filesRes.ok) {
+        setFiles(await filesRes.json());
+      }
+
+    } catch (e) {
+      console.error('Dashboard fetch error:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -52,49 +101,7 @@ export function Dashboard({ onOpenCanvas }: { onOpenCanvas: (id: string | null) 
       window.addEventListener('storage', updateRecentImages); // Listen for changes
       return () => window.removeEventListener('storage', updateRecentImages);
     }
-  }, [user]);
-
-  const fetchData = async () => {
-    try {
-      const [canvasesRes] = await Promise.all([
-        fetch('/api/canvas'),
-      ]);
-      
-      if (canvasesRes.ok) {
-        const data = await canvasesRes.json();
-        // Add mock summaries
-        const enhancedData = data.map((c: any) => ({
-            ...c,
-            summary: generateMockSummary(c.nodes)
-        }));
-        setCanvases(enhancedData);
-      }
-      
-      const filesRes = await fetch('/api/files');
-      if (filesRes.ok) {
-        setFiles(await filesRes.json());
-      }
-
-    } catch (e) {
-      console.error('Dashboard fetch error:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Helper to generate a mock summary based on node content
-  const generateMockSummary = (nodes: any[]) => {
-    if (!nodes || nodes.length === 0) return "Empty canvas";
-    const textNodes = nodes.filter((n: any) => n.type === 'text');
-    if (textNodes.length === 0) return "Visual exploration";
-    
-    // Try to find a prompt
-    const firstMsg = textNodes[0]?.data?.messages?.[0]?.content;
-    if (firstMsg) {
-        return firstMsg.substring(0, 60) + (firstMsg.length > 60 ? "..." : "");
-    }
-    return "Brainstorming session";
-  };
+  }, [user, fetchData]);
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString(undefined, {

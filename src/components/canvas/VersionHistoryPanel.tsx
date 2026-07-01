@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, RotateCcw, Clock, ChevronRight } from "lucide-react";
+import { useCallback, useState, useEffect } from "react";
+import { X, RotateCcw, Clock } from "lucide-react";
 import { formatVersionTime } from "@/lib/collaboration";
 import { useCanvasStore } from "@/lib/store";
 
@@ -30,13 +30,7 @@ export function VersionHistoryPanel({
   const setNodes = useCanvasStore((state) => state.setNodes);
   const setEdges = useCanvasStore((state) => state.setEdges);
 
-  useEffect(() => {
-    if (isOpen && canvasId) {
-      fetchVersions();
-    }
-  }, [isOpen, canvasId]);
-
-  const fetchVersions = async () => {
+  const fetchVersions = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/canvas/versions?canvasId=${canvasId}`);
@@ -49,7 +43,13 @@ export function VersionHistoryPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [canvasId]);
+
+  useEffect(() => {
+    if (isOpen && canvasId) {
+      fetchVersions();
+    }
+  }, [isOpen, canvasId, fetchVersions]);
 
   const handleRestore = async (versionId: string) => {
     if (restoring) return;

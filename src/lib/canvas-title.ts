@@ -131,7 +131,7 @@ export async function maybeAutoTitleCanvas({
     // 4. Update DB
     // First, try to set both the name and the auto_title_generated flag.
     // If the column doesn't exist yet, fall back to updating just the name.
-    let updateError: any = null;
+    let updateError: unknown = null;
 
     const { error: firstUpdateError } = await supabase
       .from('canvases')

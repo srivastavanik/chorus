@@ -16,12 +16,12 @@ type FileNodeData = {
   error?: string;
 };
 
-const getFileIcon = (fileType: string | undefined | null) => {
-  if (!fileType) return File;
-  if (fileType.startsWith('image/')) return ImageIcon;
-  if (fileType.includes('text') || fileType.includes('json') || fileType.includes('javascript') || fileType.includes('typescript')) return FileCode;
-  if (fileType.includes('pdf')) return FileText;
-  return File;
+const getFileIcon = (fileType: string | undefined | null, size = 24) => {
+  if (!fileType) return <File size={size} />;
+  if (fileType.startsWith('image/')) return <ImageIcon size={size} />;
+  if (fileType.includes('text') || fileType.includes('json') || fileType.includes('javascript') || fileType.includes('typescript')) return <FileCode size={size} />;
+  if (fileType.includes('pdf')) return <FileText size={size} />;
+  return <File size={size} />;
 };
 
 const formatFileSize = (bytes: number) => {
@@ -37,7 +37,6 @@ export function FileNode({ id, data, selected }: NodeProps) {
   const label = fileNodeData?.label ?? 'File';
   const fileSize = fileNodeData?.fileSize ?? 0;
   const fileData = fileNodeData?.fileData;
-  const FileIcon = getFileIcon(fileType || 'application/octet-stream');
   const isImage = typeof fileType === 'string' && fileType.startsWith('image/');
   const isText =
     typeof fileType === 'string' &&
@@ -68,7 +67,7 @@ export function FileNode({ id, data, selected }: NodeProps) {
       {/* Header */}
       <div className="flex items-center p-3 gap-3 bg-[#141414] cursor-grab active:cursor-grabbing drag-handle rounded-t-2xl">
         <div className="bg-gray-800 p-2 rounded-lg text-gray-400">
-          <FileIcon size={24} />
+          {getFileIcon(fileType || 'application/octet-stream', 24)}
         </div>
         <div className="flex-1 overflow-hidden">
           <div className="text-sm font-medium text-white truncate" title={label}>

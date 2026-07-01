@@ -5,7 +5,6 @@ import {
   useContext,
   ReactNode,
   useState,
-  useEffect,
 } from "react";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -21,7 +20,7 @@ interface CollaborationContextType {
   myColor: CollaboratorColor;
   setMyColor: (color: CollaboratorColor) => void;
   isConnected: boolean;
-  broadcast: (type: string, data: any) => void;
+  broadcast: (type: string, data: unknown) => void;
   updateCursor: (cursor: { x: number; y: number } | null) => void;
   setActiveNode: (nodeId: string | null) => void;
   forceSyncState: () => void;
@@ -42,19 +41,16 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const canvasId = useCanvasStore((state) => state.canvasId);
 
-  // Load preferred color from localStorage
+  // Load preferred color from localStorage lazily on first render.
   const [preferredColor, setPreferredColor] = useState<
     CollaboratorColor | undefined
-  >(undefined);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(PREFERRED_COLOR_KEY);
-      if (stored && COLLABORATOR_COLORS.includes(stored as CollaboratorColor)) {
-        setPreferredColor(stored as CollaboratorColor);
-      }
-    }
-  }, []);
+  >(() => {
+    if (typeof window === "undefined") return undefined;
+    const stored = localStorage.getItem(PREFERRED_COLOR_KEY);
+    return stored && COLLABORATOR_COLORS.includes(stored as CollaboratorColor)
+      ? (stored as CollaboratorColor)
+      : undefined;
+  });
 
   const {
     collaborators,
@@ -102,7 +98,7 @@ export function CollaborationProvider({ children }: { children: ReactNode }) {
         myColor,
         setMyColor,
         isConnected,
-        broadcast: broadcast as (type: string, data: any) => void,
+        broadcast: broadcast as (type: string, data: unknown) => void,
         updateCursor,
         setActiveNode,
         forceSyncState,

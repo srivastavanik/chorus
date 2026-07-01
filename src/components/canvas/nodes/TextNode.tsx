@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +20,6 @@ import {
   Sparkles,
   ThumbsUp,
   ThumbsDown,
-  RefreshCw,
   Copy,
   Image as ImageIcon,
   StickyNote,
@@ -195,11 +194,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
   );
   const splitNode = useCanvasStore((state) => state.splitNode);
   const rateMessage = useCanvasStore((state) => state.rateMessage);
-  const reimagineNode = useCanvasStore((state) => state.reimagineNode);
   const deleteNode = useCanvasStore((state) => state.deleteNode);
   const duplicateNode = useCanvasStore((state) => state.duplicateNode);
 
-  const messages: ChatMessage[] = (data.messages as ChatMessage[]) || [];
+  const messages = useMemo<ChatMessage[]>(
+    () => (data.messages as ChatMessage[]) || [],
+    [data.messages]
+  );
 
   const modelBtnRef = useRef<HTMLButtonElement>(null);
   const splitBtnRef = useRef<HTMLButtonElement>(null);
@@ -514,7 +515,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
             } else if (event.type === "done") {
               if (event.citations) setCitations(event.citations);
             }
-          } catch (e) {
+          } catch {
             // skip
           }
         }

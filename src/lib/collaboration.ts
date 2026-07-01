@@ -1,5 +1,7 @@
 // Collaboration utilities for real-time canvas sharing
 
+import { Node, Edge } from "@xyflow/react";
+
 export const COLLABORATOR_COLORS = [
   '#ef4444', // red
   '#f97316', // orange
@@ -90,8 +92,8 @@ export interface CanvasVersion {
   id: string;
   canvasId: string;
   versionNumber: number;
-  nodes: any[];
-  edges: any[];
+  nodes: Node[];
+  edges: Edge[];
   createdBy: string | null;
   createdAt: string;
 }

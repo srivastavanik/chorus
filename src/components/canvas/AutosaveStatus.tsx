@@ -13,9 +13,11 @@ export function AutosaveStatus() {
       // Delay hiding to allow transition out
       const timeout = setTimeout(() => setIsVisible(false), 2000);
       return () => clearTimeout(timeout);
-    } else {
-      setIsVisible(true);
     }
+    // Defer showing out of the effect body to avoid a synchronous cascading
+    // render; the indicator becomes visible on the next frame.
+    const raf = requestAnimationFrame(() => setIsVisible(true));
+    return () => cancelAnimationFrame(raf);
   }, [saveStatus]);
 
   if (!isVisible && saveStatus === 'idle') return null;

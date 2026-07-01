@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const { id, name, nodes, edges } = await req.json();
     
     // Build base update data (without user_id to preserve ownership)
-    const upsertData: any = {
+    const upsertData: Record<string, unknown> = {
       nodes: nodes || [], 
       edges: edges || [],
       updated_at: new Date().toISOString()
@@ -126,7 +126,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Canvas ID required' }, { status: 400 });
     }
 
-    const updates: any = { updated_at: new Date().toISOString() };
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (name) updates.name = name;
 
     const { data, error } = await supabase
@@ -164,12 +164,14 @@ export async function GET(req: Request) {
     if (id) {
       // If ID provided, return single object
       // First try as owner
-      let { data, error } = await supabase
+      const { data: ownerData, error } = await supabase
         .from('canvases')
         .select('*')
         .eq('user_id', user.id)
         .eq('id', id)
         .maybeSingle();
+
+      let data = ownerData;
         
       if (error) {
         console.error('Supabase error:', error);

@@ -13,17 +13,11 @@ interface AddBlockMenuProps {
 export function AddBlockMenu({ onSelect, onClose, position }: AddBlockMenuProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const options: { type: NodeType; label: string; icon: React.ElementType; description: string; onClick?: () => void }[] = [
+  const options: { type: NodeType; label: string; icon: React.ElementType; description: string }[] = [
     { type: 'text', label: 'Text', icon: MessageSquare, description: 'Chat with Grok AI' },
     { type: 'image', label: 'Image', icon: ImageIcon, description: 'Generate images' },
     { type: 'postit', label: 'Post-it', icon: StickyNote, description: 'Sticky note for quick notes' },
-    { 
-      type: 'file', 
-      label: 'Upload', 
-      icon: FileText,
-      description: 'Attach a file',
-      onClick: () => fileInputRef.current?.click() 
-    },
+    { type: 'file', label: 'Upload', icon: FileText, description: 'Attach a file' },
   ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,7 +58,7 @@ export function AddBlockMenu({ onSelect, onClose, position }: AddBlockMenuProps)
           {options.map((opt, index) => (
             <button
               key={opt.type}
-              onClick={() => opt.onClick ? opt.onClick() : onSelect(opt.type)}
+              onClick={() => (opt.type === 'file' ? fileInputRef.current?.click() : onSelect(opt.type))}
               className="w-full flex items-center gap-3 p-2.5 text-sm text-gray-300 hover:bg-[#141414] hover:text-white rounded-lg transition-all duration-150 text-left group"
               style={{ animationDelay: `${index * 50}ms` }}
             >

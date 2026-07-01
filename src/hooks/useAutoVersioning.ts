@@ -4,7 +4,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { useCanvasStore } from "@/lib/store";
 
 const VERSION_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const MIN_CHANGES_FOR_VERSION = 1; // Minimum changes before saving a version
 
 export function useAutoVersioning(canvasId: string | null, enabled: boolean = true) {
   const lastVersionTimeRef = useRef<number>(Date.now());

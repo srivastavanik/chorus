@@ -2,7 +2,6 @@ import { BaseEdge, EdgeLabelRenderer, EdgeProps, getBezierPath } from '@xyflow/r
 import { Plus } from 'lucide-react';
 
 export function BezierEdge({
-  id,
   sourceX,
   sourceY,
   targetX,

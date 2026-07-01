@@ -7,7 +7,6 @@ export function getAncestorContext(
 ) {
   const ancestors: Node[] = [];
   const visited = new Set<string>();
-  const stack = [nodeId];
 
   // We want to find all upstream nodes.
   // This is a reverse BFS/DFS.
@@ -43,10 +42,12 @@ export function getAncestorContext(
   // Return full message history from ancestors
   return ancestors.flatMap((node) => {
     if (node.type === "text" && node.data.messages) {
-      return (node.data.messages as any[]).map((m: any) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      return (node.data.messages as Array<{ role: string; content: string }>).map(
+        (m) => ({
+          role: m.role,
+          content: m.content,
+        })
+      );
     }
 
     if (node.type === "postit") {
