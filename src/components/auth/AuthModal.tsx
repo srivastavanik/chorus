@@ -6,6 +6,27 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Loader2, X } from 'lucide-react';
 
+function getSafeRedirect(): string | null {
+  const searchParams = new URLSearchParams(window.location.search);
+  const redirect = searchParams.get('redirect');
+
+  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
+    return null;
+  }
+
+  try {
+    const target = new URL(redirect, window.location.origin);
+
+    if (target.origin !== window.location.origin) {
+      return null;
+    }
+
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthModal({ onClose }: { onClose?: () => void }) {
   const { login, signup, loading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
@@ -35,8 +56,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
              return;
           }
           // Check for redirect
-          const searchParams = new URLSearchParams(window.location.search);
-          const redirect = searchParams.get('redirect');
+          const redirect = getSafeRedirect();
           if (redirect) {
             window.location.href = redirect;
           }
@@ -48,8 +68,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
         setError(res.error);
       } else if (isLogin) {
         // Check for redirect
-        const searchParams = new URLSearchParams(window.location.search);
-        const redirect = searchParams.get('redirect');
+        const redirect = getSafeRedirect();
         if (redirect) {
           window.location.href = redirect;
         }
