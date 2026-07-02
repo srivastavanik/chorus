@@ -65,6 +65,99 @@ const LOCAL_CHANGE_GRACE_PERIOD_MS = 5000; // Don't sync from server within 5s o
 const NODE_GRACE_PERIOD_MS = 45000; // 45s grace period to preserve recent/local nodes
 const PRESENCE_THROTTLE_MS = 2000; // Limit presence updates to avoid websocket overload
 
+const BROADCAST_EVENT_TYPES: ReadonlySet<string> = new Set([
+  "node:update",
+  "node:create",
+  "node:delete",
+  "edge:create",
+  "edge:delete",
+  "cursor",
+  "full_sync",
+  "title:update",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isBroadcastType(value: unknown): value is BroadcastPayload["type"] {
+  return typeof value === "string" && BROADCAST_EVENT_TYPES.has(value);
+}
+
+function isCursorPosition(value: unknown): value is { x: number; y: number } {
+  return (
+    isRecord(value) &&
+    typeof value.x === "number" &&
+    Number.isFinite(value.x) &&
+    typeof value.y === "number" &&
+    Number.isFinite(value.y)
+  );
+}
+
+function isCanvasNode(value: unknown): value is CanvasNode {
+  return isRecord(value) && typeof value.id === "string";
+}
+
+function isCanvasEdge(value: unknown): value is Edge {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.source === "string" &&
+    typeof value.target === "string"
+  );
+}
+
+function isBroadcastData(value: unknown): value is BroadcastData {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const {
+    nodeId,
+    node,
+    nodes,
+    edge,
+    edges,
+    edgeId,
+    updates,
+    cursor,
+    title,
+  } = value;
+
+  return (
+    (nodeId === undefined || typeof nodeId === "string") &&
+    (node === undefined || isCanvasNode(node)) &&
+    (nodes === undefined || (Array.isArray(nodes) && nodes.every(isCanvasNode))) &&
+    (edge === undefined || isCanvasEdge(edge)) &&
+    (edges === undefined || (Array.isArray(edges) && edges.every(isCanvasEdge))) &&
+    (edgeId === undefined || typeof edgeId === "string") &&
+    (updates === undefined || isRecord(updates)) &&
+    (cursor === undefined || cursor === null || isCursorPosition(cursor)) &&
+    (title === undefined || typeof title === "string")
+  );
+}
+
+function parseBroadcastPayload(payload: unknown): BroadcastPayload | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const { type, userId: senderId, data, timestamp } = payload;
+  if (!isBroadcastType(type) || typeof senderId !== "string" || !isBroadcastData(data)) {
+    return null;
+  }
+
+  if (timestamp !== undefined) {
+    if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
+      return null;
+    }
+
+    return { type, userId: senderId, data, timestamp };
+  }
+
+  return { type, userId: senderId, data };
+}
+
 /**
  * Merge two arrays of nodes, preserving all unique nodes from both sources.
  * For nodes with the same ID, prefer the one with newer data (based on messages length or timestamp).
@@ -271,7 +364,12 @@ export function useCollaboration({
 
     // Handle broadcast messages
     channel.on("broadcast", { event: "canvas_update" }, ({ payload }) => {
-      const { type, userId: senderId, data } = payload as BroadcastPayload;
+      const broadcastPayload = parseBroadcastPayload(payload);
+      if (!broadcastPayload) {
+        console.warn("[Collab] Ignoring invalid broadcast payload");
+        return;
+      }
+      const { type, userId: senderId, data } = broadcastPayload;
 
       // Ignore own broadcasts
       if (senderId === userId) return;
