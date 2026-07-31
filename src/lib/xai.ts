@@ -1,7 +1,4 @@
-import OpenAI from 'openai';
+import { getXaiClient } from '@/lib/ai-provider';
 
-export const xai = new OpenAI({
-  apiKey: process.env.XAI_API_KEY || 'dummy', // Should be in env
-  baseURL: 'https://api.x.ai/v1',
-});
-
+// Re-export a Braintrust-wrapped OpenAI client pointed at xAI
+export const xai = getXaiClient();

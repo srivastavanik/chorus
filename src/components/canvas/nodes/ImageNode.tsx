@@ -16,7 +16,6 @@ import {
   ThumbsUp,
   ThumbsDown,
   Upload,
-  Wand2,
   MoreHorizontal,
   MessageSquare,
   StickyNote,
@@ -94,14 +93,15 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       setIsLoading(data.isGenerating as boolean);
     if (data.prompt) setPrompt(data.prompt as string);
     if (data.editImage) setEditImage(data.editImage as string);
-    if (data.mode) setMode(data.mode as any);
+    if (data.mode) setMode(data.mode as "generate" | "edit");
     // Only set model if explicitly saved, otherwise keep default (grok-imagine-v0p9)
     if (data.model && typeof data.model === "string") setModel(data.model);
     if (data.images) {
-      setImages(data.images as any[]);
+      const imgs = data.images as Array<{ url: string; revisedPrompt?: string }>;
+      setImages(imgs);
       // Update local storage when images are loaded/generated
-      if ((data.images as any[]).length > 0) {
-        const firstImg = (data.images as any[])[0];
+      if (imgs.length > 0) {
+        const firstImg = imgs[0];
         updateRecentImages(
           firstImg.url,
           (data.prompt as string) || firstImg.revisedPrompt || "Generated Image"
@@ -119,7 +119,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       const stored = localStorage.getItem("recent_images");
       const recent = stored ? JSON.parse(stored) : [];
       // Check if already exists to avoid dupes
-      if (!recent.some((img: any) => img.url === url)) {
+      if (!recent.some((img: { url: string }) => img.url === url)) {
         const newRecent = [{ url, prompt: promptText }, ...recent].slice(0, 10); // Keep last 10
         localStorage.setItem("recent_images", JSON.stringify(newRecent));
         // Dispatch event so dashboard updates
@@ -273,10 +273,12 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
       const result = await response.json();
       if (result.data) {
-        const newImages = result.data.map((img: any) => ({
-          url: img.url,
-          revisedPrompt: img.revised_prompt,
-        }));
+        const newImages = result.data.map(
+          (img: { url: string; revised_prompt?: string }) => ({
+            url: img.url,
+            revisedPrompt: img.revised_prompt,
+          })
+        );
         setImages(newImages);
         setSelectedImageIndex(0);
 

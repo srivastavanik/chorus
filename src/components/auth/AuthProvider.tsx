@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useCanvasStore } from '@/lib/store';
 
 export interface User {
@@ -26,11 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const setStoreUser = useCanvasStore((state) => state.setUser);
 
-  useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/me');
       const data = await res.json();
@@ -46,7 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setStoreUser]);
+
+  useEffect(() => {
+    checkUser();
+  }, [checkUser]);
 
   const login = async (email: string, pass: string) => {
     try {
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserState(data.user);
       setStoreUser(data.user);
       return {};
-    } catch (e) {
+    } catch {
       return { error: 'Login failed' };
     }
   };
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (data.error) return { error: data.error };
       return {};
-    } catch (e) {
+    } catch {
       return { error: 'Signup failed' };
     }
   };

@@ -6,6 +6,27 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Loader2, X } from 'lucide-react';
 
+function getSafeRedirect(): string | null {
+  const searchParams = new URLSearchParams(window.location.search);
+  const redirect = searchParams.get('redirect');
+
+  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
+    return null;
+  }
+
+  try {
+    const target = new URL(redirect, window.location.origin);
+
+    if (target.origin !== window.location.origin) {
+      return null;
+    }
+
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthModal({ onClose }: { onClose?: () => void }) {
   const { login, signup, loading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
@@ -35,8 +56,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
              return;
           }
           // Check for redirect
-          const searchParams = new URLSearchParams(window.location.search);
-          const redirect = searchParams.get('redirect');
+          const redirect = getSafeRedirect();
           if (redirect) {
             window.location.href = redirect;
           }
@@ -48,14 +68,13 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
         setError(res.error);
       } else if (isLogin) {
         // Check for redirect
-        const searchParams = new URLSearchParams(window.location.search);
-        const redirect = searchParams.get('redirect');
+        const redirect = getSafeRedirect();
         if (redirect) {
           window.location.href = redirect;
         }
         if (onClose) onClose();
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
@@ -200,7 +219,7 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
             <div className="group">
               <h3 className="text-white text-sm font-mono uppercase mb-2 tracking-widest group-hover:text-white/90 transition-colors">Deep Reasoning</h3>
               <p className="text-gray-500 text-sm leading-relaxed font-light group-hover:text-gray-400 transition-colors">
-                Powered by advanced reasoning models, Chorus doesn't just answer—it thinks. Watch the thought process unfold in real-time.
+                Powered by advanced reasoning models, Chorus doesn&apos;t just answer—it thinks. Watch the thought process unfold in real-time.
               </p>
             </div>
           </div>

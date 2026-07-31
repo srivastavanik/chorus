@@ -1,10 +1,69 @@
 import { NextResponse } from 'next/server';
 import { getUserByToken } from '@/lib/auth-utils';
-
-const XAI_API_KEY = process.env.XAI_API_KEY!;
-const XAI_BASE_URL = 'https://api.x.ai/v1';
+import { getUnauthorizedFileIds } from '@/lib/file-uploads';
+import {
+  getAiProviderConfig,
+  getXaiClient,
+  isAnthropicModel,
+  getAnthropicClient,
+} from '@/lib/ai-provider';
 
 export const maxDuration = 60; // Increase timeout for reasoning models
+
+// ---------------------------------------------------------------------------
+// Message / streaming shapes
+// ---------------------------------------------------------------------------
+
+type ChatRole = 'system' | 'user' | 'assistant';
+
+interface TextContentPart {
+  type: 'text';
+  text: string;
+}
+
+interface ImageUrlContentPart {
+  type: 'image_url';
+  image_url: { url: string; detail?: string };
+}
+
+type ContentPart =
+  | TextContentPart
+  | ImageUrlContentPart
+  | { type: string; [key: string]: unknown };
+
+interface ChatMessage {
+  role: ChatRole | string;
+  content: string | ContentPart[];
+}
+
+interface AnthropicMessage {
+  role: 'user' | 'assistant';
+  content: string | unknown[];
+}
+
+interface OpenAIStreamDelta {
+  content?: string;
+  reasoning_content?: string;
+}
+
+interface OpenAIStreamChunk {
+  choices?: Array<{ delta?: OpenAIStreamDelta }>;
+  citations?: unknown;
+}
+
+interface AnthropicStreamDelta {
+  type?: string;
+  text?: string;
+  thinking?: string;
+}
+
+interface AgenticEvent {
+  type?: string;
+  delta?: { text?: string; reasoning_content?: string };
+  response?: {
+    output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -17,8 +76,13 @@ export async function POST(req: Request) {
 
     const { messages, model, webSearch, attachedFileIds, imageUrls } = await req.json();
 
+    // Route to Anthropic handler for Claude models
+    if (isAnthropicModel(model)) {
+      return handleAnthropicChat(messages, model, imageUrls);
+    }
+
     if (attachedFileIds && attachedFileIds.length > 0) {
-      return handleAgenticResponse(messages, model, attachedFileIds, imageUrls);
+      return handleAgenticResponse(user.id, messages, model, attachedFileIds, imageUrls);
     } else {
       return handleChatCompletions(messages, model, webSearch, imageUrls);
     }
@@ -31,140 +95,285 @@ export async function POST(req: Request) {
   }
 }
 
-// Helper to process message content for vision/files
-function processMessages(messages: any[], imageUrls?: string[]) {
-  // Clone messages to avoid mutation
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+function processMessages(messages: ChatMessage[], imageUrls?: string[]): ChatMessage[] {
   const processed = [...messages];
-  
-  // If we have images, attach them to the LAST user message
+
   if (imageUrls && imageUrls.length > 0) {
     const lastUserIndex = processed.map(m => m.role).lastIndexOf('user');
     if (lastUserIndex !== -1) {
       const lastMsg = processed[lastUserIndex];
       const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
-      
-      // Construct multipart content
-      const newContent: any[] = [];
-      
-      // Add images first (or last, doesn't matter much, but contextually usually images then question)
+
+      const newContent: ContentPart[] = [];
+
       imageUrls.forEach(url => {
         newContent.push({
           type: 'image_url',
-          image_url: {
-            url: url,
-            detail: 'high' // Default to high detail
-          }
+          image_url: { url, detail: 'high' },
         });
       });
-      
-      // Add text
+
       if (textContent) {
         newContent.push({ type: 'text', text: textContent });
       }
-      
+
       processed[lastUserIndex] = { ...lastMsg, content: newContent };
     }
   }
-  
+
   return processed;
 }
 
-async function handleChatCompletions(messages: any[], model: string, webSearch?: boolean, imageUrls?: string[]) {
-  const processedMessages = processMessages(messages, imageUrls);
+function toAnthropicMessages(messages: ChatMessage[], imageUrls?: string[]): {
+  system: string | undefined;
+  messages: AnthropicMessage[];
+} {
+  let system: string | undefined;
+  const out: AnthropicMessage[] = [];
 
-  const body: any = {
-    model: model || 'grok-4-1-fast',
+  for (const m of messages) {
+    if (m.role === 'system') {
+      system = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      continue;
+    }
+    const role = m.role === 'assistant' ? ('assistant' as const) : ('user' as const);
+    out.push({ role, content: m.content });
+  }
+
+  if (imageUrls && imageUrls.length > 0 && out.length > 0) {
+    const lastIdx = out.length - 1;
+    if (out[lastIdx].role === 'user') {
+      const existing =
+        typeof out[lastIdx].content === 'string'
+          ? [{ type: 'text' as const, text: out[lastIdx].content as string }]
+          : (out[lastIdx].content as unknown[]);
+
+      const imageBlocks = imageUrls.map(url => ({
+        type: 'image' as const,
+        source: { type: 'url' as const, url },
+      }));
+
+      out[lastIdx].content = [...imageBlocks, ...existing];
+    }
+  }
+
+  return { system, messages: out };
+}
+
+// ---------------------------------------------------------------------------
+// Anthropic (Claude) handler -- traced via wrapAnthropic
+// ---------------------------------------------------------------------------
+
+async function handleAnthropicChat(messages: ChatMessage[], model: string, imageUrls?: string[]) {
+  const client = getAnthropicClient();
+  const { system, messages: anthropicMessages } = toAnthropicMessages(messages, imageUrls);
+
+  const encoder = new TextEncoder();
+
+  const stream = await client.messages.stream({
+    model,
+    max_tokens: 4096,
+    ...(system ? { system } : {}),
+    messages: anthropicMessages,
+  } as unknown as Parameters<typeof client.messages.stream>[0]);
+
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const rawEvent of stream) {
+          const event = rawEvent as { type?: string; delta?: AnthropicStreamDelta };
+          if (event.type === 'content_block_delta' && event.delta) {
+            const delta = event.delta;
+            if (delta.type === 'text_delta' && delta.text) {
+              controller.enqueue(
+                encoder.encode(JSON.stringify({ type: 'content', content: delta.text }) + '\n'),
+              );
+            }
+            if (delta.type === 'thinking_delta' && delta.thinking) {
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ type: 'reasoning', content: delta.thinking }) + '\n',
+                ),
+              );
+            }
+          }
+        }
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      } catch (err) {
+        console.error('Anthropic stream error:', err);
+        controller.error(err);
+      }
+    },
+  });
+
+  return new NextResponse(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// xAI chat completions -- uses wrapped OpenAI SDK (traced by Braintrust)
+// ---------------------------------------------------------------------------
+
+async function handleChatCompletions(
+  messages: ChatMessage[],
+  model: string,
+  webSearch?: boolean,
+  imageUrls?: string[],
+) {
+  const client = getXaiClient();
+  const processedMessages = processMessages(messages, imageUrls);
+  const resolvedModel = model || 'grok-4-1-fast';
+
+  const encoder = new TextEncoder();
+
+  // Build params -- search_parameters is xAI-specific
+  const params: Record<string, unknown> = {
+    model: resolvedModel,
     messages: processedMessages,
     stream: true,
     temperature: 0.7,
   };
-
   if (webSearch) {
-    body.search_parameters = {
-      mode: 'auto',
-      return_citations: true,
-    };
+    params.search_parameters = { mode: 'auto', return_citations: true };
   }
 
-  const response = await fetch(`${XAI_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${XAI_API_KEY}`,
+  // The wrapOpenAI wrapper intercepts this call and logs input/output to
+  // Braintrust automatically. Cast to get the streaming async iterator type.
+  const stream = (await client.chat.completions.create(
+    params as unknown as Parameters<typeof client.chat.completions.create>[0],
+  )) as unknown as AsyncIterable<OpenAIStreamChunk>;
+
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of stream) {
+          const delta = chunk.choices?.[0]?.delta;
+          if (!delta) continue;
+
+          if (delta.reasoning_content) {
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({ type: 'reasoning', content: delta.reasoning_content }) + '\n',
+              ),
+            );
+          }
+
+          if (delta.content) {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ type: 'content', content: delta.content }) + '\n'),
+            );
+          }
+
+          // xAI returns citations at the chunk level
+          if (chunk.citations) {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ type: 'done', citations: chunk.citations }) + '\n'),
+            );
+          }
+        }
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      } catch (err) {
+        console.error('xAI stream error:', err);
+        controller.error(err);
+      }
     },
-    body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('xAI API error:', errorText);
-    throw new Error(`API error: ${response.status}`);
-  }
-
-  return streamChatResponse(response);
+  return new NextResponse(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }
 
-async function handleAgenticResponse(messages: any[], model: string, attachedFileIds: string[], imageUrls?: string[]) {
-  // Process images first if any
+// ---------------------------------------------------------------------------
+// xAI agentic /responses handler (raw fetch -- xAI-specific endpoint)
+// ---------------------------------------------------------------------------
+
+async function handleAgenticResponse(
+  userId: string,
+  messages: ChatMessage[],
+  model: string,
+  attachedFileIds: string[],
+  imageUrls?: string[],
+) {
+  // Authorize every requested attachment against server-side upload metadata
+  // before the server uses its API key to have the model read the file. This
+  // prevents an authenticated user from referencing another user's file id.
+  const unauthorized = await getUnauthorizedFileIds(userId, attachedFileIds);
+  if (unauthorized.length > 0) {
+    return NextResponse.json(
+      { error: 'One or more attached files are not authorized for this user' },
+      { status: 403 },
+    );
+  }
+
+  const aiProvider = getAiProviderConfig(model || 'grok-4-1-fast');
   const processedMessages = processMessages(messages, imageUrls);
-  
-  // Convert standard messages to "input" format for /responses
-  // Use content array format with input_file for proper file handling
-  const input = processedMessages.map((m: any, index: number) => {
-    // For the LAST user message, use content array format with files
+
+  const input = processedMessages.map((m, index) => {
     if (index === processedMessages.length - 1 && m.role === 'user' && attachedFileIds.length > 0) {
-      const contentArray: any[] = [];
-      
-      // Add file references first
+      const contentArray: Record<string, unknown>[] = [];
+
       attachedFileIds.forEach(fileId => {
-        contentArray.push({
-          type: 'input_file',
-          file_id: fileId
-        });
+        contentArray.push({ type: 'input_file', file_id: fileId });
       });
-      
-      // Add the text content
-      const textContent = typeof m.content === 'string' ? m.content : 
-        (Array.isArray(m.content) ? m.content.find((c: any) => c.type === 'text')?.text || '' : '');
-      
+
+      const textContent =
+        typeof m.content === 'string'
+          ? m.content
+          : Array.isArray(m.content)
+            ? (m.content.find(c => c.type === 'text') as TextContentPart | undefined)?.text || ''
+            : '';
+
       if (textContent) {
-        contentArray.push({
-          type: 'input_text',
-          text: textContent
-        });
+        contentArray.push({ type: 'input_text', text: textContent });
       }
-      
-      // Handle images if present in the content
+
       if (Array.isArray(m.content)) {
-        m.content.forEach((c: any) => {
+        m.content.forEach(c => {
           if (c.type === 'image_url') {
+            const img = c as ImageUrlContentPart;
             contentArray.push({
               type: 'input_image',
-              image_url: c.image_url.url,
-              detail: c.image_url.detail || 'high'
+              image_url: img.image_url.url,
+              detail: img.image_url.detail || 'high',
             });
           }
         });
       }
-      
+
       return { role: m.role, content: contentArray };
     }
-    
+
     return { role: m.role, content: m.content };
   });
 
   const body = {
-    model: model || 'grok-4-1-fast',
-    input: input,
+    model: aiProvider.model,
+    input,
     stream: true,
-    temperature: 0.7
+    temperature: 0.7,
   };
 
-  const response = await fetch(`${XAI_BASE_URL}/responses`, {
+  const response = await fetch(`${aiProvider.baseUrl}/responses`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${XAI_API_KEY}`,
+      Authorization: `Bearer ${aiProvider.apiKey}`,
     },
     body: JSON.stringify(body),
   });
@@ -178,74 +387,10 @@ async function handleAgenticResponse(messages: any[], model: string, attachedFil
   return streamAgenticResponse(response);
 }
 
-// Shared stream handler for /chat/completions
-function streamChatResponse(response: Response) {
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-
-  const transformStream = new TransformStream({
-    async transform(chunk, controller) {
-      const text = decoder.decode(chunk);
-      const lines = text.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-          try {
-            const data = JSON.parse(line.slice(6));
-            
-            let content = '';
-            let reasoningContent = '';
-            
-            // Handle Chat Completion format
-            if (data.choices?.[0]?.delta?.content) {
-                content = data.choices[0].delta.content;
-            }
-            if (data.choices?.[0]?.delta?.reasoning_content) {
-                reasoningContent = data.choices[0].delta.reasoning_content;
-            }
-            
-            if (reasoningContent) {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'reasoning',
-                content: reasoningContent,
-              }) + '\n'));
-            }
-
-            if (content) {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'content',
-                content: content,
-              }) + '\n'));
-            }
-            
-            // Pass citations if available
-            if (data.citations) {
-               controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'done',
-                citations: data.citations,
-              }) + '\n'));
-            }
-
-          } catch (e) {
-            // Skip parse errors
-          }
-        } else if (line === 'data: [DONE]') {
-          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
-        }
-      }
-    },
-  });
-
-  return new NextResponse(response.body?.pipeThrough(transformStream), {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
-}
-
+// ---------------------------------------------------------------------------
 // Stream handler for /responses endpoint (agentic)
+// ---------------------------------------------------------------------------
+
 function streamAgenticResponse(response: Response) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -255,47 +400,42 @@ function streamAgenticResponse(response: Response) {
     async transform(chunk, controller) {
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
         if (line.startsWith('data: ') && line !== 'data: [DONE]') {
           try {
-            const data = JSON.parse(line.slice(6));
-            
-            // Handle /responses streaming format
-            // Events can be: response.created, response.in_progress, response.output_item.added,
-            // response.content_part.added, response.content_part.delta, response.output_item.done, response.done
-            
+            const data = JSON.parse(line.slice(6)) as AgenticEvent;
             const eventType = data.type;
-            
-            // Handle content delta events
+
             if (eventType === 'response.content_part.delta' && data.delta?.text) {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'content',
-                content: data.delta.text,
-              }) + '\n'));
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ type: 'content', content: data.delta.text }) + '\n',
+                ),
+              );
             }
-            
-            // Handle reasoning content if present
+
             if (data.delta?.reasoning_content) {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'reasoning',
-                content: data.delta.reasoning_content,
-              }) + '\n'));
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ type: 'reasoning', content: data.delta.reasoning_content }) +
+                    '\n',
+                ),
+              );
             }
-            
-            // Handle completed response
+
             if (eventType === 'response.done' || eventType === 'response.completed') {
-              // Extract final content if available
               if (data.response?.output) {
                 for (const item of data.response.output) {
                   if (item.content && Array.isArray(item.content)) {
                     for (const part of item.content) {
                       if (part.type === 'output_text' && part.text) {
-                        controller.enqueue(encoder.encode(JSON.stringify({
-                          type: 'content',
-                          content: part.text,
-                        }) + '\n'));
+                        controller.enqueue(
+                          encoder.encode(
+                            JSON.stringify({ type: 'content', content: part.text }) + '\n',
+                          ),
+                        );
                       }
                     }
                   }
@@ -303,8 +443,7 @@ function streamAgenticResponse(response: Response) {
               }
               controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
             }
-
-          } catch (e) {
+          } catch {
             // Skip parse errors
           }
         } else if (line === 'data: [DONE]') {
@@ -313,24 +452,24 @@ function streamAgenticResponse(response: Response) {
       }
     },
     flush(controller) {
-      // Handle any remaining buffer
       if (buffer.trim()) {
         try {
           if (buffer.startsWith('data: ') && buffer !== 'data: [DONE]') {
-            const data = JSON.parse(buffer.slice(6));
+            const data = JSON.parse(buffer.slice(6)) as AgenticEvent;
             if (data.delta?.text) {
-              controller.enqueue(encoder.encode(JSON.stringify({
-                type: 'content',
-                content: data.delta.text,
-              }) + '\n'));
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ type: 'content', content: data.delta.text }) + '\n',
+                ),
+              );
             }
           }
-        } catch (e) {
+        } catch {
           // Skip
         }
       }
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
-    }
+    },
   });
 
   return new NextResponse(response.body?.pipeThrough(transformStream), {

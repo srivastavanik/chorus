@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
-
-const XAI_API_KEY = process.env.XAI_API_KEY!;
-const XAI_BASE_URL = 'https://api.x.ai/v1';
+import { getUserByToken } from '@/lib/auth-utils';
+import { getAiApiConfig } from '@/lib/ai-provider';
+import { recordUploadedFile } from '@/lib/file-uploads';
 
 export async function POST(req: Request) {
   try {
+    // Require an authenticated user: this endpoint spends the server's xAI API
+    // key, so it must never be an open proxy.
+    const token = req.headers.get('cookie')?.split('auth_token=')[1]?.split(';')[0];
+    const user = token ? await getUserByToken(token) : null;
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const aiProvider = getAiApiConfig();
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const purpose = formData.get('purpose') || 'assistants';
@@ -13,20 +22,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // We need to forward this to xAI
-    // Since we are in a server environment, we can use fetch with FormData but 
-    // we need to be careful about headers.
-    // Alternatively, we can use the openai package if it's configured for xAI.
-    
-    // Let's use raw fetch to ensure we pass the buffer correctly
+    // Forward to xAI with raw fetch so the multipart boundary is preserved.
     const xaiFormData = new FormData();
     xaiFormData.append('file', file);
     xaiFormData.append('purpose', purpose as string);
 
-    const response = await fetch(`${XAI_BASE_URL}/files`, {
+    const response = await fetch(`${aiProvider.baseUrl}/files`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${XAI_API_KEY}`,
+        'Authorization': `Bearer ${aiProvider.apiKey}`,
         // Do not set Content-Type manually for FormData, fetch does it with boundary
       },
       body: xaiFormData,
@@ -39,6 +43,24 @@ export async function POST(req: Request) {
     }
 
     const data = await response.json();
+
+    // Record ownership so the chat/agentic route can authorize this file id
+    // against the authenticated user. Fail closed if it cannot be recorded.
+    if (data?.id) {
+      try {
+        await recordUploadedFile({
+          userId: user.id,
+          xaiFileId: data.id,
+          filename: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        });
+      } catch (ownershipError) {
+        console.error('File ownership record failed:', ownershipError);
+        return NextResponse.json({ error: 'Failed to record file ownership' }, { status: 500 });
+      }
+    }
+
     return NextResponse.json(data);
 
   } catch (error) {
@@ -46,4 +68,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-

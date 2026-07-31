@@ -147,7 +147,10 @@ Configure the following environment variables in your deployment environment:
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Yes |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous public API key | Yes |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key (for admin operations) | Yes |
-| `XAI_API_KEY` | Your xAI API key for accessing Grok models | Yes |
+| `XAI_API_KEY` | Your xAI API key for accessing Grok models | Yes* |
+| `BRAINTRUST_API_KEY` | Braintrust API key for traced proxy calls | Yes* |
+
+\*`BRAINTRUST_API_KEY` is preferred for traced calls via Braintrust proxy. If it is set, Chorus routes AI traffic through `https://api.braintrust.dev/v1/proxy`; otherwise it falls back to direct xAI calls using `XAI_API_KEY`.
 
 ### Database Setup
 

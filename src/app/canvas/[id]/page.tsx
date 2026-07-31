@@ -7,7 +7,7 @@ import { LandingPage } from "@/components/landing/LandingPage";
 import { NavBar } from "@/components/layout/NavBar";
 import Canvas from "@/components/canvas/Canvas";
 import { useCanvasStore } from "@/lib/store";
-import { CollaboratorColor } from "@/lib/collaboration";
+import { Collaborator, CollaboratorColor } from "@/lib/collaboration";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +18,7 @@ export default function CanvasPage({ params }: PageProps) {
   const { id } = use(params);
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [myColor, setMyColor] = useState<CollaboratorColor>("#ef4444");
   const setMyColorRef = useRef<((color: CollaboratorColor) => void) | null>(
     null
@@ -87,7 +87,7 @@ export default function CanvasPage({ params }: PageProps) {
         if (res.ok && !isCancelled) {
           const data = await res.json();
           const target = Array.isArray(data)
-            ? data.find((c: any) => c.id === id)
+            ? data.find((c: { id: string }) => c.id === id)
             : data.id === id
             ? data
             : null;
@@ -106,7 +106,6 @@ export default function CanvasPage({ params }: PageProps) {
 
             // Get current state to merge with loaded data
             const currentNodes = useCanvasStore.getState().nodes;
-            const currentEdges = useCanvasStore.getState().edges;
 
             // If we already have nodes (from collaboration), merge them
             if (currentNodes.length > 0 && currentStoreId === id) {

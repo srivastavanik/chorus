@@ -90,17 +90,25 @@ export function PostItNode({ id, data, selected }: NodeProps) {
   const { getNodeBorderColor, broadcast, markNodePending } = useCollaborationContext();
   const collaboratorColor = getNodeBorderColor(id);
 
-  // Sync content from external updates (collaboration)
+  // Sync content from external updates (collaboration). Deferred out of the
+  // effect body and using functional updaters so local edits are not needed as
+  // dependencies -- we only re-sync when the external node data changes.
   useEffect(() => {
-    if (nodeData.content !== undefined && nodeData.content !== content) {
-      setContent(nodeData.content);
-    }
-    if (nodeData.backgroundColor && nodeData.backgroundColor !== bgColor) {
-      setBgColor(nodeData.backgroundColor);
-    }
-    if (nodeData.textColor && nodeData.textColor !== textColor) {
-      setTextColor(nodeData.textColor);
-    }
+    const raf = requestAnimationFrame(() => {
+      const nextContent = nodeData.content;
+      if (nextContent !== undefined) {
+        setContent((prev) => (nextContent !== prev ? nextContent : prev));
+      }
+      const nextBg = nodeData.backgroundColor;
+      if (nextBg) {
+        setBgColor((prev) => (nextBg !== prev ? nextBg : prev));
+      }
+      const nextText = nodeData.textColor;
+      if (nextText) {
+        setTextColor((prev) => (nextText !== prev ? nextText : prev));
+      }
+    });
+    return () => cancelAnimationFrame(raf);
   }, [nodeData.content, nodeData.backgroundColor, nodeData.textColor]);
 
   // Broadcast content changes with debounce

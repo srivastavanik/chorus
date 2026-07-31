@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +20,6 @@ import {
   Sparkles,
   ThumbsUp,
   ThumbsDown,
-  RefreshCw,
   Copy,
   Image as ImageIcon,
   StickyNote,
@@ -86,6 +85,24 @@ const MODELS = [
     id: "grok-3-mini",
     name: "Grok 3 Mini",
     description: "Lightweight",
+    supportsReasoning: false,
+  },
+  {
+    id: "claude-sonnet-4-20250514",
+    name: "Claude Sonnet 4",
+    description: "Balanced speed and intelligence",
+    supportsReasoning: false,
+  },
+  {
+    id: "claude-opus-4-20250514",
+    name: "Claude Opus 4",
+    description: "Most capable Claude model",
+    supportsReasoning: false,
+  },
+  {
+    id: "claude-3-5-haiku-20241022",
+    name: "Claude 3.5 Haiku",
+    description: "Fastest Claude model",
     supportsReasoning: false,
   },
 ];
@@ -177,11 +194,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
   );
   const splitNode = useCanvasStore((state) => state.splitNode);
   const rateMessage = useCanvasStore((state) => state.rateMessage);
-  const reimagineNode = useCanvasStore((state) => state.reimagineNode);
   const deleteNode = useCanvasStore((state) => state.deleteNode);
   const duplicateNode = useCanvasStore((state) => state.duplicateNode);
 
-  const messages: ChatMessage[] = (data.messages as ChatMessage[]) || [];
+  const messages = useMemo<ChatMessage[]>(
+    () => (data.messages as ChatMessage[]) || [],
+    [data.messages]
+  );
 
   const modelBtnRef = useRef<HTMLButtonElement>(null);
   const splitBtnRef = useRef<HTMLButtonElement>(null);
@@ -415,7 +434,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       const allMessages = [...context, ...nodeMessages];
 
       // Prepare payload
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         messages: allMessages,
         model,
         webSearch,
@@ -496,7 +515,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
             } else if (event.type === "done") {
               if (event.citations) setCitations(event.citations);
             }
-          } catch (e) {
+          } catch {
             // skip
           }
         }
@@ -655,7 +674,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
           {showModelMenu && (
             <div
               ref={modelMenuRef}
-              className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] py-1 nodrag cursor-default"
+              className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-[100] min-w-[200px] max-h-[320px] overflow-y-auto py-1 nodrag cursor-default"
             >
               {MODELS.map((m) => (
                 <button

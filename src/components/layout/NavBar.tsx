@@ -66,9 +66,10 @@ export function NavBar({ onHomeClick, collaborators = [], myColor, onColorChange
       if (data.avatarUrl) {
         updateUser({ avatar_url: data.avatarUrl });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Avatar upload failed:', e);
-      alert(e.message || 'Failed to upload avatar');
+      const message = e instanceof Error ? e.message : '';
+      alert(message || 'Failed to upload avatar');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {

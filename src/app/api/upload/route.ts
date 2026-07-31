@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUserByToken } from '@/lib/auth-utils';
+import { getAiApiConfig } from '@/lib/ai-provider';
+import { recordUploadedFile } from '@/lib/file-uploads';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -72,10 +74,11 @@ export async function POST(req: Request) {
     }
 
     // 2. Upload to xAI Files API (for Chat/Agentic capabilities)
+    // Braintrust/tracing configuration must not enable forwarding uploaded file contents.
     let xaiFileId = null;
-    const XAI_API_KEY = process.env.XAI_API_KEY;
-    if (XAI_API_KEY) {
+    if (process.env.XAI_API_KEY) {
         try {
+            const aiProvider = getAiApiConfig();
             const xaiFormData = new FormData();
             // We need to re-create a Blob/File from buffer because we consumed it? 
             // Actually ArrayBuffer is reusable.
@@ -84,10 +87,10 @@ export async function POST(req: Request) {
             xaiFormData.append('file', blob, file.name); // Keep original name for xAI
             xaiFormData.append('purpose', 'assistants'); // Standard purpose
 
-            const xaiRes = await fetch('https://api.x.ai/v1/files', {
+            const xaiRes = await fetch(`${aiProvider.baseUrl}/files`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${XAI_API_KEY}`,
+                    'Authorization': `Bearer ${aiProvider.apiKey}`,
                     // Content-Type is set automatically by FormData
                 },
                 body: xaiFormData
@@ -102,6 +105,26 @@ export async function POST(req: Request) {
         } catch (xaiError) {
             console.error('xAI Upload exception:', xaiError);
         }
+    }
+
+    // Record ownership so the chat/agentic route can authorize this file id
+    // against the authenticated user. If ownership cannot be recorded, do not
+    // hand the provider file id back to the client (fail closed): the file
+    // still exists in storage for display, but it will not be attachable.
+    if (xaiFileId) {
+      try {
+        await recordUploadedFile({
+          userId: user.id,
+          xaiFileId,
+          filename: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          storagePath: filePath,
+        });
+      } catch (ownershipError) {
+        console.error('File ownership record failed:', ownershipError);
+        xaiFileId = null;
+      }
     }
 
     return NextResponse.json({ 
